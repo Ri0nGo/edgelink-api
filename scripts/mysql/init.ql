@@ -37,11 +37,10 @@ CREATE TABLE device (
 ) COMMENT='设备表';
 
 -- 设备属性表
-CREATE TABLE device_property_instance (
+CREATE TABLE device_property_ref (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     device_id BIGINT NOT NULL,
     property_id BIGINT NOT NULL,
-    enable TINYINT(1) DEFAULT 1 COMMENT '是否启用采集',
     persistent TINYINT(1) DEFAULT 1 COMMENT '是否存历史数据',
     store_mode ENUM('full','change','aggregate') DEFAULT 'full',
     created_time DATETIME,
