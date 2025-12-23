@@ -1,52 +1,59 @@
 CREATE DATABASE edgelink;
 
-CREATE TABLE `device` (
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `device_key` VARCHAR(64) NOT NULL COMMENT '设备唯一标识',
-    `device_name` VARCHAR(128) NOT NULL COMMENT '设备名称',
-    `description` VARCHAR(255) DEFAULT NULL COMMENT '设备描述',
-    `user_id` BIGINT UNSIGNED NOT NULL COMMENT '所属用户',
-    `created_time` DATETIME,
-    `updated_time` DATETIME,
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_device_key` (`device_key`),
-    KEY `idx_user_id` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备表';
+-- 物模型表
+CREATE TABLE thing_model (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  model_key VARCHAR(64) NOT NULL COMMENT '模型唯一标识',
+  model_name VARCHAR(128) NOT NULL COMMENT '模型名称',
+  description VARCHAR(255),
+  created_time DATETIME,
+  updated_time DATETIME,
+  UNIQUE KEY uk_model_key (model_key)
+) COMMENT='物模型定义';
 
 
-CREATE TABLE `device_point` (
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `device_id` BIGINT UNSIGNED NOT NULL COMMENT '所属设备 ID',
-    `origin_field` VARCHAR(64) NOT NULL COMMENT '设备原始字段',
-    `name` VARCHAR(128) NOT NULL COMMENT '点位名称',
-    `point_id` VARCHAR(128) COMMENT '全局点位 ID（用于数据存储）',
-    `unit` VARCHAR(32) DEFAULT NULL COMMENT '单位',
-    `persistent` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否持久化历史数据1',
-    `created_time` DATETIME,
-    `updated_time` DATETIME,
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_point_id` (`point_id`),
-    UNIQUE KEY `uk_device_field` (`device_id`, `origin_field`),
-    KEY `idx_device_id` (`device_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备点位定义表';
+-- 产品表
+CREATE TABLE product (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    product_key VARCHAR(64) NOT NULL,
+    product_name VARCHAR(128) NOT NULL,
+    model_id BIGINT NOT NULL COMMENT '绑定物模型',
+    created_time DATETIME,
+    updated_time DATETIME,
+    UNIQUE KEY uk_product_key (product_key)
+) COMMENT='产品';
 
+-- 设备表
+CREATE TABLE device (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    device_key VARCHAR(64) NOT NULL,
+    device_name VARCHAR(128),
+    product_id BIGINT NOT NULL,
+    protocol SMALLINT NOT NULL COMMENT '协议类型，1:mqtt',
+    description VARCHAR(255) DEFAULT NULL COMMENT '设备描述',
+    created_time DATETIME,
+    updated_time DATETIME,
+    UNIQUE KEY uk_device_key (device_key)
+) COMMENT='设备表';
 
-CREATE TABLE `history_data` (
-    `point_id` BIGINT UNSIGNED NOT NULL COMMENT '点位 ID',
-    `ts` BIGINT UNSIGNED NOT NULL COMMENT '时间戳（秒或毫秒，需统一）',
-    `value` DOUBLE NOT NULL COMMENT '点位数值',
-    PRIMARY KEY (`point_id`, `ts`),
-    KEY `idx_ts` (`ts`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备点位历史数据';
+-- 设备属性表
+CREATE TABLE device_property_instance (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    device_id BIGINT NOT NULL,
+    property_id BIGINT NOT NULL,
+    enable TINYINT(1) DEFAULT 1 COMMENT '是否启用采集',
+    persistent TINYINT(1) DEFAULT 1 COMMENT '是否存历史数据',
+    store_mode ENUM('full','change','aggregate') DEFAULT 'full',
+    created_time DATETIME,
+    updated_time DATETIME,
+    UNIQUE KEY uk_device_property (device_id, property_id)
+) COMMENT='设备属性实例配置';
 
-
-CREATE TABLE device_group (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    parent_id BIGINT DEFAULT 0,
-    group_name VARCHAR(64) NOT NULL,
-    description VARCHAR(256),
-    user_id BIGINT,
-    created_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_parent_id (parent_id)
-);
+-- 历史数据表
+CREATE TABLE history_data (
+    device_id BIGINT NOT NULL,
+    property_id BIGINT NOT NULL,
+    ts DATETIME NOT NULL,
+    value DOUBLE,
+    PRIMARY KEY (device_id, property_id, ts)
+) COMMENT='设备历史数据';
