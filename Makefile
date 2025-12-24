@@ -17,3 +17,7 @@ lint:
 .PHONY: wire
 wire:
 	wire gen internal/ioc/wire.go
+
+.PHONY: run
+run:
+	go run main.go

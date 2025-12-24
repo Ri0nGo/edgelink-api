@@ -30,6 +30,7 @@ CREATE TABLE device (
     device_name VARCHAR(128),
     product_id BIGINT NOT NULL,
     protocol SMALLINT NOT NULL COMMENT '协议类型，1:mqtt',
+    address      json         not null comment '设备上行/下行地址',
     description VARCHAR(255) DEFAULT NULL COMMENT '设备描述',
     created_time DATETIME,
     updated_time DATETIME,
