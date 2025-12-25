@@ -9,22 +9,20 @@ import (
 	"time"
 )
 
-func Start(addr ...string) (*http.Server, *ioc.Container) {
+func InitApp(addr ...string) (*ioc.Container, *http.Server) {
+	container := ioc.InitWebServer()
 	address := ":8080"
 	if len(addr) > 0 {
 		address = addr[0]
 	}
-	container := ioc.InitWebServer()
-
 	srv := &http.Server{
 		Addr:    address,
 		Handler: container.Engine,
 	}
-
-	return srv, container
+	return container, srv
 }
 
-func Run(srv *http.Server) {
+func RunWebServer(srv *http.Server) {
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			panic(err)

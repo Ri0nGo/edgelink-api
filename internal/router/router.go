@@ -22,8 +22,12 @@ func InitRouter(routers []RegistryRouter) *gin.Engine {
 	return engine
 }
 
-func LoadRegistryRouters(tmApi *api.ThingModelApi) []RegistryRouter {
+func LoadRegistryRouters(
+	tmApi *api.ThingModelApi,
+	productApi *api.ProductApi,
+) []RegistryRouter {
 	return []RegistryRouter{
 		tmApi,
+		productApi,
 	}
 }

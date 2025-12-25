@@ -10,6 +10,7 @@ import (
 	"edgelink-api/internal/api"
 	"edgelink-api/internal/infrastructure/cache"
 	"edgelink-api/internal/infrastructure/db"
+	"edgelink-api/internal/pkg/logger"
 	"edgelink-api/internal/repo"
 	"edgelink-api/internal/router"
 	"edgelink-api/internal/svc"
@@ -24,12 +25,15 @@ import (
 
 func InitWebServer() *Container {
 	gormDB := db.InitDB()
-	cmdable := cache.InitRedisCache()
-	iThingModelRepo := repo.NewThingModelRepo(gormDB, cmdable)
+	iThingModelRepo := repo.NewThingModelRepo(gormDB)
 	iThingModelSvc := svc.NewThingModelSvc(iThingModelRepo)
 	thingModelApi := api.NewThingModelApi(iThingModelSvc)
-	v := router.LoadRegistryRouters(thingModelApi)
+	iProductRepo := repo.NewProductRepo(gormDB)
+	iProductSvc := svc.NewProductSvc(iProductRepo, iThingModelRepo)
+	productApi := api.NewProductApi(iProductSvc)
+	v := router.LoadRegistryRouters(thingModelApi, productApi)
 	engine := router.InitRouter(v)
+	cmdable := cache.InitRedisCache()
 	container := &Container{
 		Engine:   engine,
 		RedisCmd: cmdable,
@@ -54,6 +58,7 @@ func (c *Container) Close() {
 	if c.RedisCmd != nil {
 		if r, ok := c.RedisCmd.(io.Closer); ok {
 			_ = r.Close()
+			logger.Info("close redis completed")
 		}
 	}
 
@@ -61,6 +66,7 @@ func (c *Container) Close() {
 		db2, err := c.MysqlDB.DB()
 		if err == nil {
 			_ = db2.Close()
+			logger.Info("close mysql completed")
 		}
 	}
 }

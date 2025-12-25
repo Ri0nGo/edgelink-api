@@ -38,8 +38,8 @@ func main() {
 	}
 
 	config.InitConfigWithViper(appCfg.configPath)
-	srv, container := startup.Start()
-	startup.Run(srv)
+	container, srv := startup.InitApp()
+	startup.RunWebServer(srv)
 
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
