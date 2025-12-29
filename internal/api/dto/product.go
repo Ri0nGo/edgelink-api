@@ -6,8 +6,8 @@ import (
 
 type ReqProduct struct {
 	Id         int                       `json:"id"`
-	Identifier string                    `json:"identifier"`
-	Name       string                    `json:"name"`
-	ModelId    int                       `json:"model_id"`
-	Protocol   model.ProductProtocolType `json:"protocol"` // 产品使用的协议
+	Identifier string                    `json:"identifier" binding:"required"`
+	Name       string                    `json:"name" binding:"required"`
+	ModelId    int                       `json:"model_id" binding:"required"`
+	Protocol   model.ProductProtocolType `json:"protocol" binding:"required"` // 产品使用的协议
 }

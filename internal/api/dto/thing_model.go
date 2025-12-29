@@ -6,9 +6,9 @@ import (
 
 type FuncType struct {
 	Id          int                        `json:"id"`
-	Name        string                     `json:"name"`
-	ModelId     int                        `json:"model_id"`
-	Key         string                     `json:"Key"`
+	Name        string                     `json:"name" binding:"required"`
+	ModelId     int                        `json:"model_id" binding:"required"`
+	Key         string                     `json:"Key" binding:"required"` // 属性标识
 	Description string                     `json:"description"`
 	SourceType  model.ThingModelSourceType `json:"source_type"`
 	Type        model.ThingModelType       `json:"type"`
@@ -19,8 +19,8 @@ type FuncType struct {
 
 type ReqThingModel struct {
 	Id          int        `json:"id"`
-	Name        string     `json:"name"`
-	Identifier  string     `json:"identifier"` // 标识符
+	Name        string     `json:"name" binding:"required"`
+	Identifier  string     `json:"identifier" binding:"required"` // 标识符
 	Icon        string     `json:"icon"`
 	Description string     `json:"description"`
 	FuncTypes   []FuncType `json:"func_types"`

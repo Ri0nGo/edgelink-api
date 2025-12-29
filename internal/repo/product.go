@@ -14,11 +14,20 @@ type IProductRepo interface {
 	UpdateProduct(ctx context.Context, product *model.Product) error
 	DeleteProduct(ctx context.Context, id int) error
 	GetProductById(ctx context.Context, id int) (model.Product, error)
+	GetProductsByIds(ctx context.Context, ids []int) ([]model.Product, error)
 	GetProductList(ctx context.Context, page dto.Page) (dto.Page, error)
 }
 
 type ProductRepo struct {
 	db *gorm.DB
+}
+
+func (r *ProductRepo) GetProductsByIds(ctx context.Context, ids []int) ([]model.Product, error) {
+	var results []model.Product
+	err := r.db.WithContext(ctx).
+		Find(&results).
+		Error
+	return results, err
 }
 
 func (r *ProductRepo) CreateProduct(ctx context.Context, product *model.Product) error {

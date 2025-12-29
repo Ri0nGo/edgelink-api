@@ -31,7 +31,10 @@ func InitWebServer() *Container {
 	iProductRepo := repo.NewProductRepo(gormDB)
 	iProductSvc := svc.NewProductSvc(iProductRepo, iThingModelRepo)
 	productApi := api.NewProductApi(iProductSvc)
-	v := router.LoadRegistryRouters(thingModelApi, productApi)
+	iDeviceRepo := repo.NewDeviceRepo(gormDB)
+	iDeviceSvc := svc.NewDeviceSvc(iDeviceRepo, iProductRepo)
+	deviceApi := api.NewDeviceApi(iDeviceSvc)
+	v := router.LoadRegistryRouters(thingModelApi, productApi, deviceApi)
 	engine := router.InitRouter(v)
 	cmdable := cache.InitRedisCache()
 	container := &Container{

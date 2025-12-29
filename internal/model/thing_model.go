@@ -10,7 +10,7 @@ const (
 	ThingModelPropTypeFloat
 )
 
-type ThingModelSourceType int8
+type ThingModelSourceType int8 // 属性
 
 const (
 	ThingModelSourceTypeRaw ThingModelSourceType = iota + 1
