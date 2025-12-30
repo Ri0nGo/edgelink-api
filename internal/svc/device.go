@@ -65,18 +65,15 @@ func (s *DeviceSvc) generateAddress(productKey, deviceKey string) model.DeviceAd
 	return model.DeviceAddress{
 		Uplink: []model.DeviceAddressDetail{
 			{
-				Address: fmt.Sprintf("/devices/%s/%s/uplink/data}", productKey, deviceKey),
+				Address: fmt.Sprintf("/sys/%s/%s/uplink/data}", productKey, deviceKey),
 				Desc:    "上传设备数据至MQTT",
 			}, {
-				Address: fmt.Sprintf("/devices/%s/%s/uplink/status}", productKey, deviceKey),
+				Address: fmt.Sprintf("/sys/%s/%s/uplink/status}", productKey, deviceKey),
 				Desc:    "上传设备状态至MQTT",
-			}, {
-				Address: fmt.Sprintf("/devices/%s/%s/uplink/keepalive}", productKey, deviceKey),
-				Desc:    "同步设备心跳",
 			},
 		}, Downlink: []model.DeviceAddressDetail{
 			{
-				Address: fmt.Sprintf("/devices/%s/%s/downlink/event}", productKey, deviceKey),
+				Address: fmt.Sprintf("/sys/%s/%s/downlink/event}", productKey, deviceKey),
 				Desc:    "下发事件至设备（暂未实现）",
 			},
 		},
