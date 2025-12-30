@@ -32,14 +32,26 @@ func (d Device) TableName() string {
 	return "device"
 }
 
+type StoreMode string
+
+const (
+	StoreModeFull   StoreMode = "full"
+	StoreModeChange StoreMode = "change"
+	StoreModeMinute StoreMode = "minute"
+	StoreModeHour   StoreMode = "hour"
+	StoreModeDay    StoreMode = "day"
+	StoreModeWeek   StoreMode = "week"
+	StoreModeMonth  StoreMode = "month"
+)
+
 type DevicePropertyRef struct {
 	Id         int `json:"id" gorm:"primaryKey;autoIncrement"`
 	DeviceId   int `json:"device_id"`
 	PropertyId int `json:"property_id"`
 	// 数据持久化
 	Persistent bool `json:"persistent"`
-	// 数据存储方式，full全量存储(每接收到一个值就存下来), change值变化才存储, 1min固定间隔存储, every_min整点数据
-	StoreMode   string    `json:"store_mode" gorm:"default:every_min"`
+	// 数据存储方式，full全量存储(每接收到一个值就存下来), change值变化才存储, minute每分钟一条
+	StoreMode   StoreMode `json:"store_mode" gorm:"default:minute"` // todo 待思考是否有必要使用该字段
 	CreatedTime time.Time `json:"created_time" gorm:"autoCreateTime"`
 	UpdatedTime time.Time `json:"updated_time" gorm:"autoUpdateTime"`
 }

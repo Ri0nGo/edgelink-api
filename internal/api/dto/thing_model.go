@@ -26,6 +26,10 @@ type ReqThingModel struct {
 	FuncTypes   []FuncType `json:"func_types"`
 }
 
+type ReqThingModelProp struct {
+	FuncType
+}
+
 type RespThingModelList struct {
 	Page
 	Search string `json:"search" form:"search"`

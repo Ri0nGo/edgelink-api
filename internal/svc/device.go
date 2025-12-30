@@ -19,11 +19,16 @@ type IDeviceSvc interface {
 	DeleteDevice(ctx context.Context, id int) error
 	GetDeviceById(ctx context.Context, id int) (model.Device, error)
 	GetDeviceList(ctx context.Context, page dto.Page) (dto.Page, error)
+
+	// device property
+	UpdateDeviceProp(ctx context.Context, req *dto.ReqDeviceProp) error
+	DeleteDeviceProps(ctx context.Context, req *dto.ReqIds) error
 }
 
 type DeviceSvc struct {
 	productRepo repo.IProductRepo
 	deviceRepo  repo.IDeviceRepo
+	tmpRepo     repo.IThingModelPropRepo
 }
 
 func (s *DeviceSvc) CreateDevice(ctx context.Context, req *dto.ReqDevice) error {
@@ -41,8 +46,19 @@ func (s *DeviceSvc) CreateDevice(ctx context.Context, req *dto.ReqDevice) error 
 		Address:     datatypes.NewJSONType(s.generateAddress(productModel.Identifier, req.Key)),
 		Description: req.Description,
 	}
-
-	return s.deviceRepo.CreateDevice(ctx, DeviceDao)
+	props, err := s.tmpRepo.GetThingModelPropsByModelId(ctx, productModel.ModelId)
+	if err != nil {
+		return err
+	}
+	var deviceProps = make([]model.DevicePropertyRef, len(props))
+	for i, prop := range props {
+		deviceProps[i] = model.DevicePropertyRef{
+			PropertyId: prop.Id,
+			Persistent: true,
+			StoreMode:  model.StoreModeMinute,
+		}
+	}
+	return s.deviceRepo.CreateDevice(ctx, DeviceDao, deviceProps)
 }
 
 func (s *DeviceSvc) generateAddress(productKey, deviceKey string) model.DeviceAddress {
@@ -86,7 +102,12 @@ func (s *DeviceSvc) UpdateDevice(ctx context.Context, req *dto.ReqDevice) error 
 }
 
 func (s *DeviceSvc) DeleteDevice(ctx context.Context, id int) error {
-	return s.deviceRepo.DeleteDevice(ctx, id)
+	err := s.deviceRepo.DeleteDevice(ctx, id)
+	if err != nil {
+		return err
+	}
+	// todo 这里还需要删除对应的历史数据
+	return s.deviceRepo.DeleteDevicePropByDeviceId(ctx, id)
 }
 
 func (s *DeviceSvc) GetDeviceById(ctx context.Context, id int) (model.Device, error) {
@@ -147,9 +168,24 @@ func (s *DeviceSvc) getProductsMap(ctx context.Context, productIds []int) (map[i
 	return result, nil
 }
 
-func NewDeviceSvc(deviceRepo repo.IDeviceRepo, productRepo repo.IProductRepo) IDeviceSvc {
+// ---------------- 设备属性 ---------------- //
+
+func (s *DeviceSvc) UpdateDeviceProp(ctx context.Context, req *dto.ReqDeviceProp) error {
+	err := s.deviceRepo.UpdateDevicePropRef(ctx, model.DevicePropertyRef{
+		Id:         req.Id,
+		Persistent: req.Persistent,
+	})
+	return err
+}
+
+func (s *DeviceSvc) DeleteDeviceProps(ctx context.Context, req *dto.ReqIds) error {
+	return s.deviceRepo.DeleteDeviceProps(ctx, req.Ids)
+}
+
+func NewDeviceSvc(deviceRepo repo.IDeviceRepo, productRepo repo.IProductRepo, tmpRepo repo.IThingModelPropRepo) IDeviceSvc {
 	return &DeviceSvc{
 		deviceRepo:  deviceRepo,
 		productRepo: productRepo,
+		tmpRepo:     tmpRepo,
 	}
 }

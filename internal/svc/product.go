@@ -4,7 +4,10 @@ import (
 	"context"
 	"edgelink-api/internal/api/dto"
 	"edgelink-api/internal/model"
+	bizErr "edgelink-api/internal/pkg/bizerr"
 	"edgelink-api/internal/repo"
+	"edgelink-api/internal/utils"
+	"fmt"
 )
 
 type IProductSvc interface {
@@ -18,6 +21,7 @@ type IProductSvc interface {
 type ProductSvc struct {
 	tmRepo      repo.IThingModelRepo
 	productRepo repo.IProductRepo
+	deviceRepo  repo.IDeviceRepo
 }
 
 func (s *ProductSvc) CreateProduct(ctx context.Context, req *dto.ReqProduct) error {
@@ -51,7 +55,16 @@ func (s *ProductSvc) UpdateProduct(ctx context.Context, req *dto.ReqProduct) err
 }
 
 func (s *ProductSvc) DeleteProduct(ctx context.Context, id int) error {
-	// todo 后面还需要检查是否有设备用了该产品，有则提示需要先处理设备
+	devices, err := s.deviceRepo.GetDevicesByProductId(ctx, id)
+	if err != nil {
+		return err
+	}
+	if len(devices) > 0 {
+		return bizErr.NewBizError(fmt.Sprintf("该产品正在被 %s 设备使用，无法删除",
+			utils.JoinByFunc(devices, ", ", func(device model.Device) string {
+				return device.Name
+			})))
+	}
 	return s.productRepo.DeleteProduct(ctx, id)
 }
 
@@ -110,9 +123,10 @@ func (s *ProductSvc) getThingsModelsMap(ctx context.Context, modelIds []int) (ma
 	return result, nil
 }
 
-func NewProductSvc(productRepo repo.IProductRepo, tmRepo repo.IThingModelRepo) IProductSvc {
+func NewProductSvc(productRepo repo.IProductRepo, tmRepo repo.IThingModelRepo, deviceRepo repo.IDeviceRepo) IProductSvc {
 	return &ProductSvc{
 		productRepo: productRepo,
 		tmRepo:      tmRepo,
+		deviceRepo:  deviceRepo,
 	}
 }

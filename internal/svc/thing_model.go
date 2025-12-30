@@ -4,7 +4,10 @@ import (
 	"context"
 	"edgelink-api/internal/api/dto"
 	"edgelink-api/internal/model"
+	bizErr "edgelink-api/internal/pkg/bizerr"
 	"edgelink-api/internal/repo"
+	"edgelink-api/internal/utils"
+	"fmt"
 )
 
 type IThingModelSvc interface {
@@ -13,10 +16,14 @@ type IThingModelSvc interface {
 	DeleteThingModel(ctx context.Context, id int) error
 	GetThingModelById(ctx context.Context, id int) (model.ThingModel, error)
 	GetThingModelList(ctx context.Context, search string, page dto.Page) (dto.Page, error)
+
+	// things model prop
 }
 
 type ThingModelSvc struct {
-	tmRepo repo.IThingModelRepo
+	tmRepo      repo.IThingModelRepo
+	tmpRepo     repo.IThingModelPropRepo
+	productRepo repo.IProductRepo
 }
 
 func (s *ThingModelSvc) CreateThingModel(ctx context.Context, req *dto.ReqThingModel) error {
@@ -75,8 +82,20 @@ func (s *ThingModelSvc) UpdateThingModel(ctx context.Context, req *dto.ReqThingM
 }
 
 func (s *ThingModelSvc) DeleteThingModel(ctx context.Context, id int) error {
-	// todo 后面还需要检查是否有产品使用了该物模型，有则提示需要先处理物模型
-	return s.tmRepo.DeleteThingModel(ctx, id)
+	products, err := s.productRepo.GetProductsByThingModelId(ctx, id)
+	if err != nil {
+		return err
+	}
+	if len(products) > 0 {
+		return bizErr.NewBizError(fmt.Sprintf("该模型正在被 %s 产品使用，无法删除",
+			utils.JoinByFunc(products, ", ", func(product model.Product) string {
+				return product.Name
+			})))
+	}
+	if err = s.tmRepo.DeleteThingModel(ctx, id); err != nil {
+		return err
+	}
+	return s.tmpRepo.DeleteThingModelPropByModelId(ctx, id)
 }
 
 func (s *ThingModelSvc) GetThingModelById(ctx context.Context, id int) (model.ThingModel, error) {
@@ -91,8 +110,10 @@ func (s *ThingModelSvc) GetThingModelList(ctx context.Context, search string, pa
 	return s.tmRepo.GetThingModelList(ctx, search, page)
 }
 
-func NewThingModelSvc(tmRepo repo.IThingModelRepo) IThingModelSvc {
+func NewThingModelSvc(tmRepo repo.IThingModelRepo, tmpRepo repo.IThingModelPropRepo, productRepo repo.IProductRepo) IThingModelSvc {
 	return &ThingModelSvc{
-		tmRepo: tmRepo,
+		tmRepo:      tmRepo,
+		tmpRepo:     tmpRepo,
+		productRepo: productRepo,
 	}
 }

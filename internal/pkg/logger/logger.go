@@ -1,9 +1,11 @@
 package logger
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"os"
+	"runtime"
 )
 
 type LogFormat string
@@ -40,16 +42,33 @@ func InitLogger(cfg LogConfig) error {
 		logOpts.AddSource = true
 	}
 
-	var handler slog.Handler
+	var baseHandler slog.Handler
 	switch cfg.LogFmt {
 	case LogJsonFormat:
-		handler = slog.NewJSONHandler(writer, logOpts)
+		baseHandler = slog.NewJSONHandler(writer, logOpts)
 	default:
-		handler = slog.NewTextHandler(writer, logOpts)
+		baseHandler = slog.NewTextHandler(writer, logOpts)
 	}
 
-	log = slog.New(handler)
+	log = slog.New(&wrapperHandler{
+		baseHandler,
+		4,
+	})
 	return nil
+}
+
+type wrapperHandler struct {
+	slog.Handler
+	skip int // 要往上跳过的栈帧数
+}
+
+func (h *wrapperHandler) Handle(ctx context.Context, r slog.Record) error {
+	if h.skip > 0 && r.PC != 0 {
+		var pcs [1]uintptr
+		runtime.Callers(h.skip+1, pcs[:]) // +1 是跳过 runtime.Callers 本身
+		r.PC = pcs[0]
+	}
+	return h.Handler.Handle(ctx, r)
 }
 
 // ---------------- 辅助函数 ---------------- //

@@ -25,6 +25,11 @@ func (a *DeviceApi) RegistryRouter(g *gin.RouterGroup) {
 	group.POST("/delete", a.DeleteDevice)
 	group.GET("/:id", a.GetDeviceDetail)
 	group.GET("/list", a.GetDeviceList)
+
+	// 设备属性
+	propGroup := group.Group("/prop")
+	propGroup.POST("/update", a.UpdateDeviceProp)
+	propGroup.POST("/delete", a.DeleteDeviceProp)
 }
 
 func (a *DeviceApi) CreateDevice(ctx *gin.Context) {
@@ -119,6 +124,40 @@ func (a *DeviceApi) GetDeviceList(ctx *gin.Context) {
 		return
 	}
 	handler.Success(ctx, page)
+}
+
+// ---------------- device property ---------------- //
+
+func (a *DeviceApi) UpdateDeviceProp(ctx *gin.Context) {
+	var req dto.ReqDeviceProp
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logger.Error("update Device err", "err", err)
+		handler.HandlerError(ctx, response.RespCodeParamErr, err)
+		return
+	}
+
+	if err := a.deviceSvc.UpdateDeviceProp(ctx.Request.Context(), &req); err != nil {
+		logger.Error("update Device err", "err", err)
+		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
+		return
+	}
+	handler.Success(ctx)
+}
+
+func (a *DeviceApi) DeleteDeviceProp(ctx *gin.Context) {
+	var req dto.ReqIds
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logger.Error("delete Device err", "err", err)
+		handler.HandlerError(ctx, response.RespCodeParamErr, err)
+		return
+	}
+
+	if err := a.deviceSvc.DeleteDeviceProps(ctx.Request.Context(), &req); err != nil {
+		logger.Error("delete Device err", "err", err)
+		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
+		return
+	}
+	handler.Success(ctx)
 }
 
 func NewDeviceApi(deviceSvc svc.IDeviceSvc) *DeviceApi {

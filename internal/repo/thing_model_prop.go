@@ -12,12 +12,22 @@ import (
 type IThingModelPropRepo interface {
 	CreateThingModelProp(ctx context.Context, tm *model.ThingModelProperty) error
 	UpdateThingModelProp(ctx context.Context, tm *model.ThingModelProperty) error
-	DeleteThingModelProp(ctx context.Context, id int) error
+	DeleteThingModelPropByModelId(ctx context.Context, modelId int) error
+	GetThingModelPropsByModelId(ctx context.Context, modelId int) ([]model.ThingModelProperty, error)
 	GetThingModelPropList(ctx context.Context, page dto.Page) (dto.Page, error)
 }
 
 type ThingModelPropRepo struct {
 	db *gorm.DB
+}
+
+func (r *ThingModelPropRepo) GetThingModelPropsByModelId(ctx context.Context, modelId int) ([]model.ThingModelProperty, error) {
+	var results []model.ThingModelProperty
+	err := r.db.WithContext(ctx).
+		Where("model_id = ?", modelId).
+		Find(&results).
+		Error
+	return results, err
 }
 
 func (r *ThingModelPropRepo) CreateThingModelProp(ctx context.Context, tm *model.ThingModelProperty) error {
@@ -36,10 +46,10 @@ func (r *ThingModelPropRepo) UpdateThingModelProp(ctx context.Context, tm *model
 		Error
 }
 
-func (r *ThingModelPropRepo) DeleteThingModelProp(ctx context.Context, id int) error {
+func (r *ThingModelPropRepo) DeleteThingModelPropByModelId(ctx context.Context, modelId int) error {
 	return r.db.
 		WithContext(ctx).
-		Where("id = ?", id).
+		Where("model_id = ?", modelId).
 		Delete(&model.ThingModel{}).
 		Error
 }

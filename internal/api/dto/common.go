@@ -4,6 +4,10 @@ type ReqId struct {
 	Id int `json:"id"`
 }
 
+type ReqIds struct {
+	Ids []int `json:"ids"`
+}
+
 type Page struct {
 	Total    int64  `json:"total" form:"total"`
 	PageSize int    `json:"page_size" form:"page_size"`
