@@ -11,6 +11,7 @@ const (
 	DefaultMQTTConnectTimeout      = 5 * time.Second
 	DefaultDisconnectTimeout  uint = 5000
 	DefaultKeepAliveTime           = 30 * time.Second
+	DefaultMaxConnectTimes         = 3
 )
 
 type MQTTConfig struct {
@@ -19,10 +20,11 @@ type MQTTConfig struct {
 	Password          string
 	DataTopic         string
 	StatusTopic       string
-	Qos               int
+	Qos               byte
 	KeepAlive         time.Duration // client-server 心跳检测时间
 	ConnectTimeout    time.Duration // 连接时间
-	DisconnectTimeout uint          // 断开连接超时，毫秒
+	MaxConnectTimes   int
+	DisconnectTimeout uint // 断开连接超时，毫秒
 	ClientId          string
 }
 
@@ -37,6 +39,7 @@ func NewMQTTConfig(brokerUrl, username, password string, opts ...MQTTOption) *MQ
 		KeepAlive:         DefaultKeepAliveTime,
 		ConnectTimeout:    DefaultMQTTConnectTimeout,
 		DisconnectTimeout: DefaultDisconnectTimeout,
+		MaxConnectTimes:   DefaultMaxConnectTimes,
 		ClientId:          getMqttClientId(),
 	}
 
@@ -70,7 +73,7 @@ func WithStatusTopic(statusTopic string) MQTTOption {
 	}
 }
 
-func WithQos(qos int) MQTTOption {
+func WithQos(qos byte) MQTTOption {
 	return func(c *MQTTConfig) {
 		c.Qos = qos
 	}

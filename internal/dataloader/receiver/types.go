@@ -1,6 +1,9 @@
 package receiver
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type ProviderType string
 
@@ -19,8 +22,9 @@ type Receiver interface {
 }
 
 type Message struct {
-	ProductIdentifier string // 产品标识符
-	DeviceKey         string // 设备标识符
-	Raw               any    // 原始数据
+	ProductIdentifier string    // 产品标识符
+	DeviceKey         string    // 设备标识符
+	Raw               []byte    // 原始数据
+	ReceivedTime      time.Time // 接收消息时间
 	Provider          ProviderType
 }
