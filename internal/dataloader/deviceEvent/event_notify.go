@@ -37,7 +37,7 @@ func (d *DeviceEventNotify) Dispatch(ctx context.Context, event *Event) {
 	for _, notifier := range notifies {
 		err := notifier.Notify(ctx, event)
 		if err != nil {
-			logger.Error("notify error", "err", err, "name", notifier.Name())
+			logger.Error("notify error", "err", err)
 			continue
 		}
 	}

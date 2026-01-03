@@ -32,5 +32,4 @@ type Event struct {
 
 type EventNotify interface {
 	Notify(ctx context.Context, event *Event) error
-	Name() error
 }

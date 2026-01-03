@@ -11,9 +11,9 @@ import (
 	"sync"
 )
 
-// MQTTDataProcessor 数据处理程序
+// MQTTStatusProcessor 数据处理程序
 // 实现了配置通知接口，数据存储接口
-type MQTTDataProcessor struct {
+type MQTTStatusProcessor struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -24,13 +24,13 @@ type MQTTDataProcessor struct {
 	devices     map[string]*DeviceInfo
 }
 
-func (p *MQTTDataProcessor) Notify(ctx context.Context, event *deviceEvent.Event) error {
+func (p *MQTTStatusProcessor) Notify(ctx context.Context, event *deviceEvent.Event) error {
 	// receive config change notify
 	// todo 后续再实现
 	return nil
 }
 
-func (p *MQTTDataProcessor) Start() error {
+func (p *MQTTStatusProcessor) Start() error {
 	// 检测 worker count 设置
 	if p.workerCount < 1 {
 		return errors.New("worker num must be greater than 0")
@@ -46,12 +46,12 @@ func (p *MQTTDataProcessor) Start() error {
 	return nil
 }
 
-func (p *MQTTDataProcessor) Close() {
+func (p *MQTTStatusProcessor) Close() {
 	p.cancel()
 	p.storage.Close()
 }
 
-func (p *MQTTDataProcessor) worker() {
+func (p *MQTTStatusProcessor) worker() {
 	defer p.wg.Done()
 
 	for {
@@ -67,13 +67,13 @@ func (p *MQTTDataProcessor) worker() {
 				logger.Error("device not found", "key", msg.DeviceKey)
 				continue
 			}
-			var dataInfo storage.DeviceDataInfo
-			if err := json.Unmarshal(msg.Raw, &dataInfo); err != nil {
+			var statusInfo storage.DeviceStatusInfo
+			if err := json.Unmarshal(msg.Raw, &statusInfo); err != nil {
 				logger.Error("failed to unmarshal device data", "key", msg.DeviceKey, "raw", msg.Raw)
 				continue
 			}
 
-			err := p.storage.SaveData(p.ctx, deviceInfo.DeviceId, &dataInfo)
+			err := p.storage.SaveStatus(p.ctx, deviceInfo.DeviceId, &statusInfo)
 			if err != nil {
 				logger.Error("save data error", "err", err)
 			}
@@ -81,9 +81,9 @@ func (p *MQTTDataProcessor) worker() {
 	}
 }
 
-func NewMQTTDataProcessor(ctx context.Context, msgChan chan *receiver.Message, workerCount int, storage storage.Storage) *MQTTDataProcessor {
+func NewMQTTStatusProcessor(ctx context.Context, msgChan chan *receiver.Message, workerCount int, storage storage.Storage) *MQTTStatusProcessor {
 	pCtx, cancel := context.WithCancel(ctx)
-	return &MQTTDataProcessor{
+	return &MQTTStatusProcessor{
 		ctx:         pCtx,
 		cancel:      cancel,
 		msgChan:     msgChan,

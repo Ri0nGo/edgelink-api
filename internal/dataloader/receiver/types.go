@@ -5,13 +5,6 @@ import (
 	"time"
 )
 
-type ProviderType string
-
-const (
-	MQTTProvider ProviderType = "mqtt"
-	HTTPProvider ProviderType = "http"
-)
-
 // Receiver 接收器接口
 type Receiver interface {
 	// Start 开始接收数据，会阻塞直到 ctx 被取消
@@ -24,6 +17,7 @@ type Receiver interface {
 type Message struct {
 	ProductIdentifier string    // 产品标识符
 	DeviceKey         string    // 设备标识符
+	Type              string    // 消息类型; data / status
 	Raw               []byte    // 原始数据
 	ReceivedTime      time.Time // 接收消息时间
 	Provider          ProviderType
