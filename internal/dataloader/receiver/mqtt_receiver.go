@@ -1,8 +1,8 @@
-package mqtt
+package receiver
 
 import (
 	"context"
-	"edgelink-api/internal/dataloader/receiver"
+	"edgelink-api/internal/dataloader"
 	"edgelink-api/internal/pkg/logger"
 	"errors"
 	"log/slog"
@@ -13,26 +13,23 @@ import (
 )
 
 type MQTTReceiver struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	mqttCfg            *MQTTConfig
 	mqClient           mqtt.Client
 	dropDataTopicCnt   int
 	dropStatusTopicCnt int
 	topicHandler       map[string]func(client mqtt.Client, msg mqtt.Message)
-	dataChan           chan *receiver.Message // 设备数据队列
-	statusChan         chan *receiver.Message // 设备状态队列
+	dataChan           chan *Message // 设备数据队列
+	statusChan         chan *Message // 设备状态队列
 }
 
-func (r *MQTTReceiver) Start(ctx context.Context) error {
+func (r *MQTTReceiver) Start() error {
 	// connect mqtt broker
 	if err := r.connectMQTT(); err != nil {
 		return err
 	}
-
-	// wait done signal
-	<-ctx.Done()
-
-	r.Close()
-	logger.Info("MQTT Receiver Close")
 	return nil
 }
 
@@ -44,6 +41,9 @@ func (r *MQTTReceiver) Close() error {
 	if r.mqClient != nil {
 		r.mqClient.Disconnect(r.mqttCfg.DisconnectTimeout)
 	}
+	if r.cancel != nil {
+		r.cancel()
+	}
 	return nil
 }
 
@@ -52,14 +52,14 @@ func (r *MQTTReceiver) connectMQTT() error {
 	r.mqClient = mqtt.NewClient(mqttOpts)
 	var attempt int
 	for {
-		slog.Info("start to connect mqtt")
+		logger.Info("start to connect mqtt")
 		token := r.mqClient.Connect()
 		if token.WaitTimeout(r.mqttCfg.ConnectTimeout) && token.Error() == nil {
-			slog.Info("MQTT connection successful", "client id", r.mqttCfg.ClientId)
+			logger.Info("MQTT connection success", "client id", r.mqttCfg.ClientId)
 			break
 		}
 		attempt += 1
-		slog.Error("MQTT connect failed", "err", token.Error(), "attempt", attempt)
+		logger.Error("MQTT connect failed", "err", token.Error(), "attempt", attempt)
 		time.Sleep(time.Minute)
 		if attempt > r.mqttCfg.MaxConnectTimes {
 			return errors.New("connect mqtt failed")
@@ -90,8 +90,8 @@ func (r *MQTTReceiver) initMQTTFunc() *mqtt.ClientOptions {
 				slog.Error("subscribe topic failed", "err", token.Error(), "topic", topic)
 				return
 			}
+			logger.Info("mqtt topic subscribe success", "broker_url", r.mqttCfg.BrokerUrl, "topic", topic)
 		}
-		logger.Info("mqtt subscribe success", "broker_url", r.mqttCfg.BrokerUrl)
 	}
 
 	opts.OnConnectionLost = func(client mqtt.Client, err error) {
@@ -112,12 +112,12 @@ func (r *MQTTReceiver) onMessageDataTopicHandler(client mqtt.Client, msg mqtt.Me
 	timer := time.NewTimer(50 * time.Millisecond)
 	defer timer.Stop()
 
-	message := &receiver.Message{
+	message := &Message{
 		ProductIdentifier: tDetail.productIdentifier,
 		DeviceKey:         tDetail.deviceKey,
 		Raw:               msg.Payload(),
 		ReceivedTime:      time.Now(),
-		Provider:          receiver.MQTTProvider,
+		Provider:          dataloader.MQTTProvider,
 	}
 	select {
 	case r.dataChan <- message:
@@ -135,12 +135,12 @@ func (r *MQTTReceiver) onMessageStatusTopicHandler(client mqtt.Client, msg mqtt.
 		logger.Error("parse topic failed", "err", err, "topic", msg.Topic())
 		return
 	}
-	message := &receiver.Message{
+	message := &Message{
 		ProductIdentifier: tDetail.productIdentifier,
 		DeviceKey:         tDetail.deviceKey,
 		Raw:               msg.Payload(),
 		ReceivedTime:      time.Now(),
-		Provider:          receiver.MQTTProvider,
+		Provider:          dataloader.MQTTProvider,
 	}
 
 	timer := time.NewTimer(50 * time.Millisecond)
@@ -187,16 +187,16 @@ func (r *MQTTReceiver) registerTopicHandler() {
 	r.topicHandler[r.mqttCfg.StatusTopic] = r.onMessageStatusTopicHandler
 }
 
-func NewMQTTReceiver(cfg *MQTTConfig,
-	DataChan chan *receiver.Message,
-	StatusChan chan *receiver.Message,
+func NewMQTTReceiver(ctx context.Context, cfg *MQTTConfig,
+	DataChan chan *Message,
+	StatusChan chan *Message,
 ) *MQTTReceiver {
 	r := &MQTTReceiver{
 		mqttCfg:    cfg,
 		dataChan:   DataChan,
 		statusChan: StatusChan,
 	}
-
+	r.ctx, r.cancel = context.WithCancel(ctx)
 	r.registerTopicHandler()
 
 	return r

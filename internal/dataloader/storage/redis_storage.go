@@ -25,7 +25,7 @@ func (r *RedisStorage) SaveStatus(ctx context.Context, deviceId int, info *Devic
 	return r.saveToRedis(ctx, deviceId, data)
 }
 
-func (r *RedisStorage) saveToRedis(ctx context.Context, deviceId int, fields map[string]any) error {
+func (r *RedisStorage) saveToRedis(ctx context.Context, deviceId int, fields ...any) error {
 	if r.cmd == nil {
 		return errors.New("redis storage is not initialized")
 	}
@@ -33,15 +33,14 @@ func (r *RedisStorage) saveToRedis(ctx context.Context, deviceId int, fields map
 }
 
 func (r *RedisStorage) Close() error {
-	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (r *RedisStorage) generateKey(deviceId int) string {
 	return fmt.Sprintf("%s:%d", r.prefix, deviceId)
 }
 
-func (r *RedisStorage) NewRedisStorage(cmd redis.Cmdable, prefix string) *RedisStorage {
+func NewRedisStorage(cmd redis.Cmdable, prefix string) *RedisStorage {
 	return &RedisStorage{
 		cmd:    cmd,
 		prefix: prefix,

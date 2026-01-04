@@ -55,6 +55,7 @@ func InitWebServer() *Container {
 
 		// repo layer
 		repo.NewThingModelRepo,
+		repo.NewThingModelPropRepo,
 		repo.NewProductRepo,
 		repo.NewDeviceRepo,
 

@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"edgelink-api/internal/bootstrap"
 	"edgelink-api/internal/infrastructure/config"
 	"edgelink-api/internal/pkg/logger"
-	"edgelink-api/internal/startup"
 	"flag"
 	"log/slog"
 	"os/signal"
@@ -37,10 +37,14 @@ func main() {
 		panic(err)
 	}
 
-	config.InitConfigWithViper(appCfg.configPath)
-	container, srv := startup.InitApp()
-	startup.RunWebServer(srv)
+	bizCtx, cancel := context.WithCancel(context.Background())
 
+	config.InitConfigWithViper(appCfg.configPath)
+	container, srv := bootstrap.InitApp()
+	bootstrap.RunWebServer(srv)
+	bootstrap.InitDataLoader(bizCtx, container.RedisCmd)
+
+	// wait quit signal
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
 		syscall.SIGINT,
@@ -49,5 +53,6 @@ func main() {
 	defer stop()
 
 	<-ctx.Done()
-	startup.Stop(context.Background(), srv, container, 10*time.Second)
+	bootstrap.Stop(bizCtx, srv, container, 10*time.Second)
+	cancel() // todo 这里还可以优化一下退出逻辑
 }

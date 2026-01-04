@@ -1,8 +1,7 @@
-package mqtt
+package receiver
 
 import (
 	"context"
-	"edgelink-api/internal/dataloader/receiver"
 	"edgelink-api/internal/pkg/logger"
 	"fmt"
 	"log/slog"
@@ -10,13 +9,13 @@ import (
 	"time"
 )
 
-func dataChanConsumer(dataChan <-chan *receiver.Message) {
+func dataChanConsumer(dataChan <-chan *Message) {
 	for msg := range dataChan {
 		fmt.Println("data chan msg:", msg)
 	}
 }
 
-func statusChanConsumer(dataChan <-chan *receiver.Message) {
+func statusChanConsumer(dataChan <-chan *Message) {
 	for msg := range dataChan {
 		fmt.Println("status chan msg:", msg)
 	}
@@ -35,16 +34,16 @@ func TestNewMQTTReceiver(t *testing.T) {
 		"admin",
 		"123456",
 	)
-	ctx, cancel := context.WithCancel(context.Background())
-	var dataChan = make(chan *receiver.Message, 10000)
-	var statusChan = make(chan *receiver.Message, 10000)
+	ctx := context.Background()
+	var dataChan = make(chan *Message, 10000)
+	var statusChan = make(chan *Message, 10000)
 
 	go dataChanConsumer(dataChan)
 	go statusChanConsumer(statusChan)
 
-	mqttReceiver := NewMQTTReceiver(cfg, dataChan, statusChan)
-	go mqttReceiver.Start(ctx)
+	mqttReceiver := NewMQTTReceiver(ctx, cfg, dataChan, statusChan)
+	mqttReceiver.Start()
 
 	time.Sleep(time.Minute * 2)
-	cancel()
+	mqttReceiver.Close()
 }

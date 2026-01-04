@@ -7,12 +7,11 @@ import (
 )
 
 type Processor interface {
-	Process(ctx context.Context, msg *receiver.Message, deviceID int, s storage.Storage) error
+	Process(ctx context.Context, msg *receiver.Message, deviceID int, s storage.Storager) error
 	Name() string
 }
 
-type DeviceInfo struct {
-	DeviceId          int
-	DeviceKey         string
-	ProductIdentifier string
+type ProcessorFactory interface {
+	Start() error
+	Close()
 }

@@ -1,4 +1,4 @@
-package mqtt
+package receiver
 
 import (
 	"edgelink-api/internal/utils"
