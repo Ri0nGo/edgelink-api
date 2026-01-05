@@ -31,8 +31,8 @@ func InitDataLoader(ctx context.Context, cmd redis.Cmdable, notifier notify.Noti
 	var statusChan = make(chan *receiver.Message, DefaultStatusChannelLength)
 
 	// 初始化存储器
-	dataStorager := initRedisStorager(cmd, "")
-	statusStorager := initRedisStorager(cmd, "")
+	dataStorager := initRedisStorager(cmd)
+	statusStorager := initRedisStorager(cmd)
 
 	// 初始化接收器
 	mqttReceiver := initMQTTReceiver(ctx, fmt.Sprintf("tcp://%s:%d", viper.GetString("mqtt.host"), viper.GetInt("mqtt.port")),
@@ -70,8 +70,8 @@ func initMQTTReceiver(ctx context.Context, brokerUrl, username, password string,
 	return mqttReceiver
 }
 
-func initRedisStorager(cmd redis.Cmdable, prefix string) storage.Storager {
-	return storage.NewRedisStorage(cmd, prefix)
+func initRedisStorager(cmd redis.Cmdable) storage.Storager {
+	return storage.NewRedisStorage(cmd)
 }
 
 func initMqttProcessor(ctx context.Context, dataChan,

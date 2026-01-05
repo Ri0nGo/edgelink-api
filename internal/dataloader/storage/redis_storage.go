@@ -75,12 +75,9 @@ func (r *RedisStorage) handleDeviceInfoStatus(info *DeviceStatusInfo) []any {
 	return []any{"key", info.Key, "ts", info.Ts}
 }
 
-func NewRedisStorage(cmd redis.Cmdable, prefix string) *RedisStorage {
-	if prefix == "" {
-		prefix = "device"
-	}
+func NewRedisStorage(cmd redis.Cmdable) *RedisStorage {
 	return &RedisStorage{
 		cmd:    cmd,
-		prefix: prefix,
+		prefix: DefaultRedisStoragePrefix,
 	}
 }

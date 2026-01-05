@@ -4,6 +4,8 @@ import (
 	"context"
 )
 
+const DefaultRedisStoragePrefix = "device"
+
 // DeviceDataInfo 设备数据信息
 type DeviceDataInfo struct {
 	Key  string             `json:"key"`
