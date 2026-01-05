@@ -46,24 +46,24 @@ CREATE TABLE `product` (
 -- 设备表
 CREATE TABLE `device` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `device_key` varchar(64) NOT NULL,
-  `device_name` varchar(128) DEFAULT NULL,
+  `key` varchar(64) NOT NULL,
+  `name` varchar(128) DEFAULT NULL,
   `product_id` bigint NOT NULL,
   `address` json NOT NULL COMMENT '设备上行/下行地址',
   `description` varchar(255) DEFAULT NULL COMMENT '设备描述',
   `created_time` datetime DEFAULT NULL,
   `updated_time` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_device_key` (`device_key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='设备表';
+  UNIQUE KEY `uk_device_key` (`key`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='设备表';
 
 -- 设备属性表
 CREATE TABLE `device_property_ref` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `device_id` bigint NOT NULL,
-  `property_id` bigint NOT NULL,
+  `property_id` bigint NOT NULL COMMENT '物模型属性id',
   `persistent` tinyint(1) DEFAULT '1' COMMENT '是否存历史数据',
-  `store_mode` varchar(16) DEFAULT 'every_min' COMMENT '数据存储方式，full全量存储,change值变化才存储,1min固定间隔存储, every_min整点数据',
+  `store_mode` varchar(16) DEFAULT 'min' COMMENT '数据存储方式，full全量存储,change值变化才存储, minute整点数据',
   `created_time` datetime DEFAULT NULL,
   `updated_time` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
