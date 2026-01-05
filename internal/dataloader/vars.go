@@ -19,9 +19,9 @@ const (
 func (m MsgType) String() string {
 	switch m {
 	case MsgTypeStatus:
-		return "status type"
+		return "status"
 	case MsgTypeData:
-		return "data type"
+		return "data"
 	default:
 		return "unknown type"
 	}
@@ -29,7 +29,7 @@ func (m MsgType) String() string {
 
 // DeviceInfo 设备信息
 type DeviceInfo struct {
-	DeviceId          int    `json:"device_id"`
-	DeviceKey         string `json:"device_key"`
-	ProductIdentifier string `json:"product_identifier"`
+	DeviceId          int    `json:"device_id" gorm:"device_id"`
+	DeviceKey         string `json:"device_key" gorm:"device_key"`
+	ProductIdentifier string `json:"product_identifier" gorm:"product_identifier"`
 }

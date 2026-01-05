@@ -2,28 +2,31 @@ package notify
 
 import (
 	"context"
+	"edgelink-api/internal/dataloader"
 	"edgelink-api/internal/pkg/logger"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
-type RedisNotifier struct {
+type RedisNotifierSub struct {
 	*baseNotifier
 	client      *redis.Client
 	channelName string
 }
 
-func NewRedisNotifier(ctx context.Context, channelName string, client *redis.Client) *RedisNotifier {
-	return &RedisNotifier{
+func NewRedisNotifierSub(ctx context.Context, channelName string, client *redis.Client) *RedisNotifierSub {
+	return &RedisNotifierSub{
 		baseNotifier: newBaseNotifier(ctx),
 		client:       client,
 		channelName:  channelName,
 	}
 }
 
-func (r *RedisNotifier) Start() error {
+func (r *RedisNotifierSub) Start() error {
 	pubsub := r.client.Subscribe(r.ctx, r.channelName)
 
 	// 等待订阅确认（Receive 会阻塞直到确认或超时/错误）
@@ -37,7 +40,7 @@ func (r *RedisNotifier) Start() error {
 	return nil
 }
 
-func (r *RedisNotifier) handlerEvent(pubsub *redis.PubSub) {
+func (r *RedisNotifierSub) handlerEvent(pubsub *redis.PubSub) {
 	ch := pubsub.Channel()
 	defer pubsub.Close()
 
@@ -50,6 +53,7 @@ func (r *RedisNotifier) handlerEvent(pubsub *redis.PubSub) {
 			if !ok {
 				// channel 关闭（通常是连接问题）
 				logger.Warn("redis channel closed unexpectedly")
+				return
 			}
 
 			var evt Event
@@ -64,9 +68,52 @@ func (r *RedisNotifier) handlerEvent(pubsub *redis.PubSub) {
 }
 
 // Close 通知监听
-func (r *RedisNotifier) Close() error {
+func (r *RedisNotifierSub) Close() error {
 	if r.cancel != nil {
 		r.cancel()
 	}
 	return nil
+}
+
+// ---------------- 发布设备配置变更通知 ---------------- //
+
+type RedisNotifierPub struct {
+	cmd         redis.Cmdable
+	channelName string
+}
+
+func (r *RedisNotifierPub) DeviceConfigChange(ctx context.Context,
+	notifyType NotifyType, operation OperationType,
+	data *dataloader.DeviceInfo) error {
+	if data == nil {
+		return errors.New("data is nil")
+	}
+	event := Event{
+		NotifyType: notifyType,
+		Operation:  operation,
+		DeviceKey:  data.DeviceKey,
+		Payload:    data,
+		Ts:         time.Now().Unix(),
+	}
+	bytes, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal event failed, err: %v", err)
+	}
+	if err := r.cmd.Publish(ctx, r.channelName, bytes).Err(); err != nil {
+		return fmt.Errorf("redis publish failed, channel: %s, err: %w", r.channelName, err)
+	}
+	return nil
+}
+
+func NewRedisNotifierPub(cmd redis.Cmdable, channelName string) NotifierPub {
+	return &RedisNotifierPub{
+		cmd:         cmd,
+		channelName: channelName,
+	}
+}
+
+// ---------------- 初始化所有的配置通知 ---------------- //
+
+func ProvideNotifierPub(cmd redis.Cmdable) NotifierPub {
+	return NewRedisNotifierPub(cmd, DeviceEventChannelName)
 }

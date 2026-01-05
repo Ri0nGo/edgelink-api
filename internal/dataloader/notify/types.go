@@ -2,6 +2,7 @@ package notify
 
 import (
 	"context"
+	"edgelink-api/internal/dataloader"
 )
 
 const DeviceEventChannelName = "device.event"
@@ -32,12 +33,12 @@ type Event struct {
 // NotifyHandler 定义处理器接口
 type NotifyHandler func(ctx context.Context, event *Event) error
 
-// Notifier 通用的通知器接口（后续 Redis、Etcd 等都实现这个接口）
-type Notifier interface {
+// NotifierSub 通用的通知器订阅接口（后续 Redis、Etcd 等都实现这个接口）
+type NotifierSub interface {
 	// 注册处理器
 	Register(notifyType NotifyType, handler NotifyHandler)
-
 	// 手动分发事件（可选，用于测试或手动触发）
+
 	Dispatch(ctx context.Context, event *Event)
 
 	// 启动监听
@@ -45,4 +46,10 @@ type Notifier interface {
 
 	// 通知监听
 	Close() error
+}
+
+// NotifierPub 发布配置接口
+type NotifierPub interface {
+	// 发布设备配置变更
+	DeviceConfigChange(ctx context.Context, notifyType NotifyType, operation OperationType, data *dataloader.DeviceInfo) error
 }

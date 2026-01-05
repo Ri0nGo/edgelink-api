@@ -101,7 +101,7 @@ func (p *GenericProcessor) worker(name string) {
 			return
 
 		case msg := <-p.msgChan:
-			logger.Info("worker handler msg", "worker_name", name, "key", msg.DeviceKey)
+			//logger.Info("worker handler msg", "worker_name", name, "key", msg.DeviceKey)
 			devInfo, ok := p.devices[msg.DeviceKey]
 			if !ok {
 				logger.Error("device not found", "key", msg.DeviceKey)
@@ -143,22 +143,39 @@ func (p *GenericProcessor) Notify(ctx context.Context, event *notify.Event) erro
 	case notify.DeviceNotifyType:
 		switch event.Operation {
 		case notify.OperationTypeCreated, notify.OperationTypeUpdated:
-			// 期望 payload 是完整的属性 map
-			if deviceInfo, ok := event.Payload.(*dataloader.DeviceInfo); ok {
-				p.devices[event.DeviceKey] = deviceInfo
-				logger.Info("[notify] device %s %s, full state updated\n", event.DeviceKey, event.Operation)
-			} else {
-				fmt.Printf("[notify] Invalid payload type for device %s %s: %T\n", event.DeviceKey, event.Operation, event.Payload)
+			var deviceInfo dataloader.DeviceInfo
+			// 期望 payload 是完整的属性
+			payloadBytes, err := json.Marshal(event.Payload)
+			if err != nil {
+				logger.Error("failed to remarshal payload", "err", err)
+				return err
 			}
-
+			if err = json.Unmarshal(payloadBytes, &deviceInfo); err != nil {
+				logger.Error("failed to unmarshal device info", "err", err, "payload", string(payloadBytes))
+				return err
+			}
+			p.handleDeviceInfoCreatedOrUpdate(&deviceInfo)
+			logger.Info("notify device info change", "key", deviceInfo.DeviceKey, "operation", event.Operation, "info", deviceInfo)
 		case notify.OperationTypeDeleted:
-			delete(p.devices, event.DeviceKey)
-			fmt.Printf("[notify] device %s deleted\n", event.DeviceKey)
+			p.handleDeviceInfoDelete(event.DeviceKey)
+			logger.Info("notify device info deleted", "key", event.DeviceKey)
 		}
 	case notify.DevicePropertyNotifyType:
 		logger.Info("don't handle event", "type", event.NotifyType, "operation", event.Operation)
 	}
 	return nil
+}
+
+func (p *GenericProcessor) handleDeviceInfoCreatedOrUpdate(info *dataloader.DeviceInfo) {
+	p.mux.Lock()
+	defer p.mux.Unlock()
+	p.devices[info.DeviceKey] = info
+}
+
+func (p *GenericProcessor) handleDeviceInfoDelete(key string) {
+	p.mux.Lock()
+	defer p.mux.Unlock()
+	delete(p.devices, key)
 }
 
 // RegisterHandler 注册某种消息类型的处理器（泛型方法）

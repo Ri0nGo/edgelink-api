@@ -96,29 +96,22 @@ func (r *MQTTReceiver) initMQTTFunc() *mqtt.ClientOptions {
 
 	opts.OnConnectionLost = func(client mqtt.Client, err error) {
 		if err != nil {
-			slog.Error("mqtt connect lost", "err", err, "broker_url", r.mqttCfg.BrokerUrl)
+			logger.Error("mqtt connect lost", "err", err, "broker_url", r.mqttCfg.BrokerUrl)
 		}
 	}
 	return opts
 }
 
 func (r *MQTTReceiver) onMessageDataTopicHandler(client mqtt.Client, msg mqtt.Message) {
-	tDetail, err := parseTopicPath(msg.Topic())
+	message, err := r.buildMessage(msg)
 	if err != nil {
-		logger.Error("parse topic failed", "err", err, "topic", msg.Topic())
+		logger.Error("build data message failed", "err", err, "topic", msg.Topic())
 		return
 	}
 
 	timer := time.NewTimer(50 * time.Millisecond)
 	defer timer.Stop()
 
-	message := &Message{
-		ProductIdentifier: tDetail.productIdentifier,
-		DeviceKey:         tDetail.deviceKey,
-		Raw:               msg.Payload(),
-		ReceivedTime:      time.Now(),
-		Provider:          dataloader.MQTTProvider,
-	}
 	select {
 	case r.dataChan <- message:
 		logger.Info("received data", "topic", msg.Topic(), "product_identifier", message.ProductIdentifier,
@@ -130,17 +123,10 @@ func (r *MQTTReceiver) onMessageDataTopicHandler(client mqtt.Client, msg mqtt.Me
 }
 
 func (r *MQTTReceiver) onMessageStatusTopicHandler(client mqtt.Client, msg mqtt.Message) {
-	tDetail, err := parseTopicPath(msg.Topic())
+	message, err := r.buildMessage(msg)
 	if err != nil {
-		logger.Error("parse topic failed", "err", err, "topic", msg.Topic())
+		logger.Error("build status message failed", "err", err, "topic", msg.Topic())
 		return
-	}
-	message := &Message{
-		ProductIdentifier: tDetail.productIdentifier,
-		DeviceKey:         tDetail.deviceKey,
-		Raw:               msg.Payload(),
-		ReceivedTime:      time.Now(),
-		Provider:          dataloader.MQTTProvider,
 	}
 
 	timer := time.NewTimer(50 * time.Millisecond)
@@ -156,11 +142,28 @@ func (r *MQTTReceiver) onMessageStatusTopicHandler(client mqtt.Client, msg mqtt.
 	}
 }
 
+func (r *MQTTReceiver) buildMessage(msg mqtt.Message) (*Message, error) {
+	tDetail, err := parseTopicPath(msg.Topic())
+	if err != nil {
+		logger.Error("parse topic failed", "err", err, "topic", msg.Topic())
+		return nil, err
+	}
+	message := &Message{
+		ProductIdentifier: tDetail.productIdentifier,
+		DeviceKey:         tDetail.deviceKey,
+		MsgType:           tDetail.msgType,
+		Raw:               msg.Payload(),
+		ReceivedTime:      time.Now(),
+		Provider:          dataloader.MQTTProvider,
+	}
+	return message, nil
+}
+
 type topicDetail struct {
-	productIdentifier string // 产品标识符
-	deviceKey         string // 设备标识符
-	topicLinkType     string // topic上行/下行
-	topicType         string // topic类型；data / status
+	productIdentifier string             // 产品标识符
+	deviceKey         string             // 设备标识符
+	topicLinkType     string             // topic上行/下行
+	msgType           dataloader.MsgType // topic类型；data / status
 }
 
 func parseTopicPath(topic string) (topicDetail, error) {
@@ -169,11 +172,18 @@ func parseTopicPath(topic string) (topicDetail, error) {
 	if len(parts) != 6 {
 		return topicDetail{}, errors.New("invalid topic len")
 	}
+	var msgType dataloader.MsgType
+	switch parts[5] {
+	case dataloader.MsgTypeStatus.String():
+		msgType = dataloader.MsgTypeStatus
+	case dataloader.MsgTypeData.String():
+		msgType = dataloader.MsgTypeData
+	}
 	return topicDetail{
 		productIdentifier: parts[2],
 		deviceKey:         parts[3],
 		topicLinkType:     parts[4],
-		topicType:         parts[5],
+		msgType:           msgType,
 	}, nil
 }
 

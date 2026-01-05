@@ -40,9 +40,9 @@ func main() {
 	bizCtx, cancel := context.WithCancel(context.Background())
 
 	config.InitConfigWithViper(appCfg.configPath)
+
 	container, srv := bootstrap.InitApp()
-	bootstrap.RunWebServer(srv)
-	bootstrap.InitDataLoader(bizCtx, container.RedisCmd)
+	bootstrap.Bootstrap(bizCtx, container, srv)
 
 	// wait quit signal
 	ctx, stop := signal.NotifyContext(

@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"edgelink-api/internal/dataloader"
+	"edgelink-api/internal/dataloader/notify"
 	"edgelink-api/internal/dataloader/processor"
 	"edgelink-api/internal/dataloader/receiver"
 	"edgelink-api/internal/dataloader/storage"
@@ -19,19 +20,19 @@ const (
 )
 
 const (
-	storageDataPrefix   = "device:data"
+	storageDataPrefix   = "device:"
 	storageStatusPrefix = "device:status"
 )
 
-func InitDataLoader(ctx context.Context, cmd redis.Cmdable) {
+func InitDataLoader(ctx context.Context, cmd redis.Cmdable, notifier notify.NotifierSub) {
 	logger.Info("init data loader")
 
 	var dataChan = make(chan *receiver.Message, DefaultDataChannelLength)
 	var statusChan = make(chan *receiver.Message, DefaultStatusChannelLength)
 
 	// 初始化存储器
-	dataStorager := initRedisStorager(cmd, storageDataPrefix)
-	statusStorager := initRedisStorager(cmd, storageStatusPrefix)
+	dataStorager := initRedisStorager(cmd, "")
+	statusStorager := initRedisStorager(cmd, "")
 
 	// 初始化接收器
 	mqttReceiver := initMQTTReceiver(ctx, fmt.Sprintf("tcp://%s:%d", viper.GetString("mqtt.host"), viper.GetInt("mqtt.port")),
@@ -40,7 +41,7 @@ func InitDataLoader(ctx context.Context, cmd redis.Cmdable) {
 		dataChan, statusChan)
 
 	// 初始化处理器
-	processors := initMqttProcessor(ctx, dataChan, statusChan, dataStorager, statusStorager)
+	processors := initMqttProcessor(ctx, dataChan, statusChan, dataStorager, statusStorager, notifier)
 
 	logger.Info("init data loader completed")
 
@@ -73,7 +74,11 @@ func initRedisStorager(cmd redis.Cmdable, prefix string) storage.Storager {
 	return storage.NewRedisStorage(cmd, prefix)
 }
 
-func initMqttProcessor(ctx context.Context, dataChan, statusChan chan *receiver.Message, dataS, statusS storage.Storager) []processor.ProcessorFactory {
+func initMqttProcessor(ctx context.Context, dataChan,
+	statusChan chan *receiver.Message,
+	dataS, statusS storage.Storager,
+	notifier notify.NotifierSub) []processor.ProcessorFactory {
+
 	mqttProcessor := processor.NewMQTTProcessor()
 	genericDataProcessor := processor.NewGenericProcessor(ctx, dataChan, 3, dataS)
 	processor.RegisterHandler(genericDataProcessor, dataloader.MsgTypeData, mqttProcessor.HandlerData, "handler mqtt data")
@@ -90,6 +95,11 @@ func initMqttProcessor(ctx context.Context, dataChan, statusChan chan *receiver.
 		logger.Error("status processor start failed", "err", err)
 		return nil
 	}
+
+	// 注册设备的配置变动监听
+	logger.Info("register device config subscribe by redis")
+	notifier.Register(notify.DeviceNotifyType, genericDataProcessor.Notify)   // 设备数据处理器监听配置变动
+	notifier.Register(notify.DeviceNotifyType, genericStatusProcessor.Notify) // 设备状态处理器监听配置变动
 
 	return []processor.ProcessorFactory{genericDataProcessor, genericStatusProcessor}
 }
