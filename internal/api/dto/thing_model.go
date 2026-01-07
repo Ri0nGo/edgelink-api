@@ -10,10 +10,10 @@ type FuncType struct {
 	ModelId     int                        `json:"model_id" binding:"required"`
 	Key         string                     `json:"Key" binding:"required"` // 属性标识
 	Description string                     `json:"description"`
-	SourceType  model.ThingModelSourceType `json:"source_type"`
-	Type        model.ThingModelType       `json:"type"`
-	DataType    model.ThingModelDataType   `json:"data_type"`
-	Expr        string                     `json:"expr"` // 公式表达式，这一版先不考虑
+	SourceType  model.ThingModelSourceType `json:"source_type"` // raw / formula
+	Type        model.ThingModelType       `json:"type"`        // 属性/功能/事件
+	DataType    model.ThingModelDataType   `json:"data_type"`   // bool/int/float
+	Expr        string                     `json:"expr"`        // 公式表达式，这一版先不考虑
 	Unit        string                     `json:"unit"`
 }
 
@@ -28,9 +28,4 @@ type ReqThingModel struct {
 
 type ReqThingModelProp struct {
 	FuncType
-}
-
-type RespThingModelList struct {
-	Page
-	Search string `json:"search" form:"search"`
 }

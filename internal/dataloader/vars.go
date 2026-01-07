@@ -33,3 +33,10 @@ type DeviceInfo struct {
 	DeviceKey         string `json:"device_key" gorm:"device_key"`
 	ProductIdentifier string `json:"product_identifier" gorm:"product_identifier"`
 }
+
+type DevicePropInfo struct {
+	DeviceId    int    `json:"device_id"`
+	DeviceKey   string `json:"device_key"`
+	PropertyId  int    `json:"property_id"`
+	PropertyKey string `json:"property_key"`
+}

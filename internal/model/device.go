@@ -59,3 +59,17 @@ type DevicePropertyRef struct {
 func (d DevicePropertyRef) TableName() string {
 	return "device_property_ref"
 }
+
+type DevicePropertyDetail struct {
+	Id         int                  `json:"id"`
+	Persistent bool                 `json:"persistent"`
+	StoreMode  StoreMode            `json:"store_mode"`
+	PropertyId int                  `json:"property_id"`
+	Key        string               `json:"key"`
+	Name       string               `json:"name"`
+	DataType   ThingModelDataType   `json:"data_type"`
+	Unit       string               `json:"unit"`
+	SourceType ThingModelSourceType `json:"source_type"`
+	Expr       string               `json:"expr"`
+	Type       ThingModelType       `json:"type"`
+}

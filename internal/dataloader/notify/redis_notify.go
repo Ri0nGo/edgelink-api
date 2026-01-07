@@ -18,7 +18,7 @@ type RedisNotifierSub struct {
 	channelName string
 }
 
-func NewRedisNotifierSub(ctx context.Context, channelName string, client *redis.Client) *RedisNotifierSub {
+func NewRedisNotifierSub(ctx context.Context, channelName string, client *redis.Client) NotifierSub {
 	return &RedisNotifierSub{
 		baseNotifier: newBaseNotifier(ctx),
 		client:       client,
@@ -34,9 +34,10 @@ func (r *RedisNotifierSub) Start() error {
 		pubsub.Close()
 		return fmt.Errorf("redis subscribe failed, channel: %s, err: %v", r.channelName, err)
 	}
-	defer logger.Info("redis subcribe success", "channel name", r.channelName)
 
 	go r.handlerEvent(pubsub)
+
+	logger.Info("redis subcribe success", "channel name", r.channelName)
 	return nil
 }
 
@@ -88,10 +89,31 @@ func (r *RedisNotifierPub) DeviceConfigChange(ctx context.Context,
 	if data == nil {
 		return errors.New("data is nil")
 	}
+
+	if err := r.publishEvent(ctx, notifyType, operation, data.DeviceKey, data); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *RedisNotifierPub) DevicePropChange(ctx context.Context,
+	notifyType NotifyType, operation OperationType, data []*dataloader.DevicePropInfo) error {
+	if data == nil || len(data) == 0 {
+		return errors.New("data is nil or len is zero")
+	}
+	if err := r.publishEvent(ctx, notifyType, operation, data[0].DeviceKey, data); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *RedisNotifierPub) publishEvent(ctx context.Context, notifyType NotifyType, operation OperationType,
+	deviceKey string, data any) error {
 	event := Event{
 		NotifyType: notifyType,
 		Operation:  operation,
-		DeviceKey:  data.DeviceKey,
+		DeviceKey:  deviceKey,
 		Payload:    data,
 		Ts:         time.Now().Unix(),
 	}

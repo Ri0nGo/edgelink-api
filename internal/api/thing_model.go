@@ -28,10 +28,10 @@ func (a *ThingModelApi) RegistryRouter(g *gin.RouterGroup) {
 	// thing model property
 	// todo 待实现
 	propGroup := group.Group("/prop")
-	propGroup.POST("/create") // 新增属性后，需要手动同步属性到设备
-	propGroup.POST("/update") // 更新属性，注意同步设备监听
-	propGroup.POST("/delete") // 检查是否有产品在使用，如果有在使用的话，则不允许删除
-	propGroup.POST("/list")
+	propGroup.POST("/create", a.CreateThingModelProp) // 新增属性后，需要手动同步属性到设备
+	propGroup.POST("/update", a.UpdateThingModelProp) // 更新属性，注意同步设备监听
+	propGroup.POST("/delete", a.DeleteThingModelProp) // 检查是否有产品在使用，如果有在使用的话，则不允许删除
+	propGroup.POST("/list", a.GetThingModelPropList)
 }
 
 func (a *ThingModelApi) CreateThingModel(ctx *gin.Context) {
@@ -104,7 +104,7 @@ func (a *ThingModelApi) GetThingModelDetail(ctx *gin.Context) {
 }
 
 func (a *ThingModelApi) GetThingModelList(ctx *gin.Context) {
-	var req dto.RespThingModelList
+	var req dto.ReqPageSearch
 	if err := ctx.ShouldBindQuery(&req); err != nil {
 		handler.HandlerError(ctx, response.RespCodeParamErr, err)
 		return
@@ -116,6 +116,75 @@ func (a *ThingModelApi) GetThingModelList(ctx *gin.Context) {
 		return
 	}
 	response.Success(ctx, page)
+}
+
+// ---------------- 物模型属性 ---------------- //
+
+func (a *ThingModelApi) GetThingModelPropList(ctx *gin.Context) {
+	var req dto.ReqPageSearch
+	if err := ctx.ShouldBindQuery(&req); err != nil {
+		handler.HandlerError(ctx, response.RespCodeParamErr, err)
+		return
+	}
+
+	page, err := a.tmSvc.GetThingModelPropList(ctx, req.ModelId, req.Search, req.Page)
+	if err != nil {
+		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
+		return
+	}
+	response.Success(ctx, page)
+}
+
+func (a *ThingModelApi) CreateThingModelProp(ctx *gin.Context) {
+	var req dto.ReqThingModelProp
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logger.Error("add thing model err", "err", err)
+		handler.HandlerError(ctx, response.RespCodeParamErr, err)
+		return
+	}
+
+	if err := a.tmSvc.CreateThingModelProp(ctx.Request.Context(), &req); err != nil {
+		logger.Error("create thing model err", "err", err)
+		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
+		return
+	}
+	handler.Success(ctx)
+}
+
+func (a *ThingModelApi) UpdateThingModelProp(ctx *gin.Context) {
+	var req dto.ReqThingModelProp
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logger.Error("update thing model err", "err", err)
+		handler.HandlerError(ctx, response.RespCodeParamErr, err)
+		return
+	}
+
+	if err := a.tmSvc.UpdateThingModelProp(ctx.Request.Context(), &req); err != nil {
+		logger.Error("update thing model err", "err", err)
+		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
+		return
+	}
+	handler.Success(ctx)
+}
+
+func (a *ThingModelApi) DeleteThingModelProp(ctx *gin.Context) {
+	var req dto.ReqId
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logger.Error("delete thing model err", "err", err)
+		handler.HandlerError(ctx, response.RespCodeParamErr, err)
+		return
+	}
+
+	if err := a.tmSvc.DeleteThingModelProp(ctx.Request.Context(), req.Id); err != nil {
+		logger.Error("delete thing model err", "err", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) { // 触发次数多了说明不对劲，可以做监控
+			handler.Success(ctx)
+			return
+		}
+		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
+		return
+	}
+	handler.Success(ctx)
 }
 
 func NewThingModelApi(tmSvc svc.IThingModelSvc) *ThingModelApi {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"edgelink-api/internal/dataloader"
 	"edgelink-api/internal/dataloader/notify"
+	"edgelink-api/internal/dataloader/persistence"
 	"edgelink-api/internal/dataloader/processor"
 	"edgelink-api/internal/dataloader/receiver"
 	"edgelink-api/internal/dataloader/storage"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
+	"gorm.io/gorm"
 )
 
 const (
@@ -19,18 +21,24 @@ const (
 	DefaultStatusChannelLength = 10000
 )
 
-const (
-	storageDataPrefix   = "device:"
-	storageStatusPrefix = "device:status"
-)
+//const (
+//	storageDataPrefix   = "device:"
+//	storageStatusPrefix = "device:status"
+//)
 
-func InitDataLoader(ctx context.Context, cmd redis.Cmdable, notifier notify.NotifierSub) {
+func InitDataLoader(ctx context.Context, db *gorm.DB, cmd redis.Cmdable, notifier notify.NotifierSub) {
 	logger.Info("init data loader")
 
 	var dataChan = make(chan *receiver.Message, DefaultDataChannelLength)
 	var statusChan = make(chan *receiver.Message, DefaultStatusChannelLength)
 
-	// 初始化存储器
+	// 初始化持久化器（mysql）
+	mySQLPersister := persistence.NewMySQLPersistence(cmd, db, persistence.DefaultBatchInsertSize, persistence.DefaultBatchQuerySize)
+	genericPersistence := persistence.NewGenericPersistence(ctx, mySQLPersister)
+	genericPersistence.Start()
+	notifier.Register(notify.DevicePropertyNotifyType, genericPersistence.Notify)
+
+	// 初始化存储器(临时存储)
 	dataStorager := initRedisStorager(cmd)
 	statusStorager := initRedisStorager(cmd)
 
@@ -51,6 +59,7 @@ func InitDataLoader(ctx context.Context, cmd redis.Cmdable, notifier notify.Noti
 		for _, proc := range processors {
 			proc.Close()
 		}
+		genericPersistence.Close()
 		dataStorager.Close()
 		statusStorager.Close()
 

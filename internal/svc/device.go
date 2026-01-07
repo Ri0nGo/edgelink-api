@@ -17,7 +17,7 @@ type IDeviceSvc interface {
 	CreateDevice(ctx context.Context, req *dto.ReqDevice) error
 	UpdateDevice(ctx context.Context, req *dto.ReqDevice) error
 	DeleteDevice(ctx context.Context, id int) error
-	GetDeviceById(ctx context.Context, id int) (model.Device, error)
+	GetDeviceById(ctx context.Context, id int) (*dto.RespDevice, error)
 	GetDeviceList(ctx context.Context, page dto.Page) (dto.Page, error)
 
 	// device property
@@ -107,20 +107,32 @@ func (s *DeviceSvc) DeleteDevice(ctx context.Context, id int) error {
 	return s.deviceRepo.DeleteDevicePropByDeviceId(ctx, id)
 }
 
-func (s *DeviceSvc) GetDeviceById(ctx context.Context, id int) (model.Device, error) {
+func (s *DeviceSvc) GetDeviceById(ctx context.Context, id int) (*dto.RespDevice, error) {
 	DeviceDao, err := s.deviceRepo.GetDeviceById(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return model.Device{}, bizErr.NewBizError("设备不存在")
+			return nil, bizErr.NewBizError("设备不存在")
 		}
-		return model.Device{}, err
+		return nil, err
 	}
 	productModel, err := s.productRepo.GetProductById(ctx, DeviceDao.ProductId)
 	if err != nil {
-		return model.Device{}, err
+		return nil, err
 	}
 	DeviceDao.ProductName = productModel.Name
-	return DeviceDao, nil
+
+	// todo 查询该设备使用了哪些模型属性（设备下不允许编辑模型属性的标识符，数据类型）
+	props, err := s.deviceRepo.GetDevicePropByDeviceId(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &dto.RespDevice{
+		Device: DeviceDao,
+		Props:  props,
+	}
+
+	return result, nil
 }
 
 func (s *DeviceSvc) GetDeviceList(ctx context.Context, page dto.Page) (dto.Page, error) {

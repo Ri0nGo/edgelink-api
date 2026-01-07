@@ -26,6 +26,7 @@ type Event struct {
 	NotifyType NotifyType    `json:"notify_type"`
 	Operation  OperationType `json:"operation"`
 	DeviceKey  string        `json:"device_key"`
+	DeviceId   int           `json:"device_id"`
 	Payload    any           `json:"payload"` // 内容
 	Ts         int64         `json:"ts"`
 }
@@ -52,4 +53,6 @@ type NotifierSub interface {
 type NotifierPub interface {
 	// 发布设备配置变更
 	DeviceConfigChange(ctx context.Context, notifyType NotifyType, operation OperationType, data *dataloader.DeviceInfo) error
+	// 设备属性变更(一个设备下的属性列表)
+	DevicePropChange(ctx context.Context, notifyType NotifyType, operation OperationType, data []*dataloader.DevicePropInfo) error
 }

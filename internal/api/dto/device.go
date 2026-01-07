@@ -1,5 +1,7 @@
 package dto
 
+import "edgelink-api/internal/model"
+
 type ReqDevice struct {
 	Id          int    `json:"id"`
 	Name        string `json:"name" binding:"required"`       // 设备名称
@@ -12,4 +14,9 @@ type ReqDeviceProp struct {
 	Id         int  `json:"id"`         // 属性id
 	Persistent bool `json:"persistent"` // 持久化
 	DeviceId   int  `json:"device_id"`
+}
+
+type RespDevice struct {
+	model.Device
+	Props []model.DevicePropertyDetail `json:"props"` // 属性， 功能和事件还未实现
 }

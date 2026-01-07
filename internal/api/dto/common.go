@@ -19,3 +19,9 @@ type Page struct {
 	// ext
 	UnlimitedPageSize bool `json:"-" form:"-"` // 不限制分页
 }
+
+type ReqPageSearch struct {
+	Page
+	ModelId int    `json:"model_id" form:"model_id"`
+	Search  string `json:"search" form:"search"`
+}

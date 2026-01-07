@@ -102,13 +102,13 @@ func (a *DeviceApi) GetDeviceDetail(ctx *gin.Context) {
 		return
 	}
 
-	deviceDao, err := a.deviceSvc.GetDeviceById(ctx.Request.Context(), id)
+	result, err := a.deviceSvc.GetDeviceById(ctx.Request.Context(), id)
 	if err != nil {
 		logger.Error("get Device err", "err", err)
 		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
 		return
 	}
-	handler.Success(ctx, deviceDao)
+	handler.Success(ctx, result)
 }
 
 func (a *DeviceApi) GetDeviceList(ctx *gin.Context) {

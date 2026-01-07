@@ -21,10 +21,26 @@ type IDeviceRepo interface {
 	UpdateDevicePropRef(ctx context.Context, props model.DevicePropertyRef) error
 	DeleteDeviceProps(ctx context.Context, id []int) error
 	DeleteDevicePropByDeviceId(ctx context.Context, deviceId int) error
+	GetDevicePropByDeviceId(ctx context.Context, deviceId int) ([]model.DevicePropertyDetail, error)
 }
 
 type DeviceRepo struct {
 	db *gorm.DB
+}
+
+func (r *DeviceRepo) GetDevicePropByDeviceId(ctx context.Context, deviceId int) ([]model.DevicePropertyDetail, error) {
+	var props []model.DevicePropertyDetail
+	err := r.db.WithContext(ctx).
+		Raw(`
+SELECT t1.id, t1.persistent, t1.store_mode, t2.id as property_id, t2.key, t2.name, t2.data_type, t2.unit, t2.source_type, t2.expr, t2.type 
+FROM device_property_ref t1
+INNER JOIN thing_model_property t2
+ON t1.property_id = t2.id
+WHERE t1.device_id = ?
+`, deviceId).
+		Find(&props).
+		Error
+	return props, err
 }
 
 func (r *DeviceRepo) GetDevicesByProductId(ctx context.Context, productId int) ([]model.Device, error) {

@@ -15,9 +15,13 @@ type IThingModelSvc interface {
 	UpdateThingModel(ctx context.Context, req *dto.ReqThingModel) error
 	DeleteThingModel(ctx context.Context, id int) error
 	GetThingModelById(ctx context.Context, id int) (model.ThingModel, error)
-	GetThingModelList(ctx context.Context, search string, page dto.Page) (dto.Page, error)
+	GetThingModelList(ctx context.Context, search string, page dto.Page) (dto.Page, error) //
 
 	// things model prop
+	CreateThingModelProp(ctx context.Context, req *dto.ReqThingModelProp) error
+	UpdateThingModelProp(ctx context.Context, req *dto.ReqThingModelProp) error
+	DeleteThingModelProp(ctx context.Context, id int) error
+	GetThingModelPropList(ctx context.Context, modelId int, search string, page dto.Page) (dto.Page, error)
 }
 
 type ThingModelSvc struct {
@@ -108,6 +112,58 @@ func (s *ThingModelSvc) GetThingModelById(ctx context.Context, id int) (model.Th
 
 func (s *ThingModelSvc) GetThingModelList(ctx context.Context, search string, page dto.Page) (dto.Page, error) {
 	return s.tmRepo.GetThingModelList(ctx, search, page)
+}
+
+// ---------------- 物模型属性 ---------------- //
+
+func (s *ThingModelSvc) CreateThingModelProp(ctx context.Context, req *dto.ReqThingModelProp) error {
+	_, err := s.tmRepo.GetThingModelById(ctx, req.ModelId)
+	if err != nil {
+		return bizErr.NewBizError("模型不存在")
+	}
+	// todo 新增属性后，需要查询该物模型是否有设备使用，如果有的话则需要同步至所有设备
+	return s.tmpRepo.CreateThingModelProp(ctx, &model.ThingModelProperty{
+		ModelId:    req.ModelId,
+		Key:        req.Key,
+		Name:       req.Name,
+		Type:       req.Type,
+		DataType:   req.DataType,
+		Unit:       req.Unit,
+		SourceType: req.SourceType,
+		Expr:       req.Expr,
+	})
+}
+
+func (s *ThingModelSvc) UpdateThingModelProp(ctx context.Context, req *dto.ReqThingModelProp) error {
+	_, err := s.tmRepo.GetThingModelById(ctx, req.ModelId)
+	if err != nil {
+		return bizErr.NewBizError("模型不存在")
+	}
+	// todo 更新属性后，需要查询该物模型是否有设备使用，如果有的话则需要同步至所有设备
+	return s.tmpRepo.UpdateThingModelProp(ctx, &model.ThingModelProperty{
+		ModelId:    req.ModelId,
+		Key:        req.Key,
+		Name:       req.Name,
+		Type:       req.Type,
+		DataType:   req.DataType,
+		Unit:       req.Unit,
+		SourceType: req.SourceType,
+		Expr:       req.Expr,
+	})
+}
+
+func (s *ThingModelSvc) DeleteThingModelProp(ctx context.Context, id int) error {
+	// todo 删除增属性后，需要查询该物模型是否有设备使用，如果有的话则需要同步至所有设备
+	return s.tmpRepo.DeleteThingModelPropByModelId(ctx, id)
+}
+
+func (s *ThingModelSvc) GetThingModelPropList(ctx context.Context, modelId int, search string, page dto.Page) (dto.Page, error) {
+	props, err := s.tmpRepo.GetThingModelPropsByModelId(ctx, modelId)
+	if err != nil {
+		return page, err
+	}
+	page.Data = props
+	return page, nil
 }
 
 func NewThingModelSvc(tmRepo repo.IThingModelRepo, tmpRepo repo.IThingModelPropRepo, productRepo repo.IProductRepo) IThingModelSvc {
