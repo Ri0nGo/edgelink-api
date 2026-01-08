@@ -3,7 +3,6 @@ package bootstrap
 import (
 	"context"
 	"edgelink-api/internal/dataloader"
-	"edgelink-api/internal/dataloader/notify"
 	"edgelink-api/internal/dataloader/persistence"
 	"edgelink-api/internal/dataloader/processor"
 	"edgelink-api/internal/dataloader/receiver"
@@ -26,7 +25,13 @@ const (
 //	storageStatusPrefix = "device:status"
 //)
 
-func InitDataLoader(ctx context.Context, db *gorm.DB, cmd redis.Cmdable, notifier notify.NotifierSub) {
+type DataLoaderContainer struct {
+	genericPersistence     *persistence.GenericPersistence
+	genericDataProcessor   *processor.GenericProcessor
+	genericStatusProcessor *processor.GenericProcessor
+}
+
+func InitDataLoader(ctx context.Context, db *gorm.DB, cmd redis.Cmdable) *DataLoaderContainer {
 	logger.Info("init data loader")
 
 	var dataChan = make(chan *receiver.Message, DefaultDataChannelLength)
@@ -36,9 +41,8 @@ func InitDataLoader(ctx context.Context, db *gorm.DB, cmd redis.Cmdable, notifie
 	mySQLPersister := persistence.NewMySQLPersistence(cmd, db, persistence.DefaultBatchInsertSize, persistence.DefaultBatchQuerySize)
 	genericPersistence := persistence.NewGenericPersistence(ctx, mySQLPersister)
 	genericPersistence.Start()
-	notifier.Register(notify.DevicePropertyNotifyType, genericPersistence.Notify)
 
-	// 初始化存储器(临时存储)
+	// 初始化存储器(临时存储redis)
 	dataStorager := initRedisStorager(cmd)
 	statusStorager := initRedisStorager(cmd)
 
@@ -49,16 +53,15 @@ func InitDataLoader(ctx context.Context, db *gorm.DB, cmd redis.Cmdable, notifie
 		dataChan, statusChan)
 
 	// 初始化处理器
-	processors := initMqttProcessor(ctx, dataChan, statusChan, dataStorager, statusStorager, notifier)
+	dataProcessor, statusProcessor := initMqttProcessor(ctx, dataChan, statusChan, dataStorager, statusStorager)
 
 	logger.Info("init data loader completed")
 
 	go func() {
 		<-ctx.Done()
 		mqttReceiver.Close()
-		for _, proc := range processors {
-			proc.Close()
-		}
+		dataProcessor.Close()
+		statusProcessor.Close()
 		genericPersistence.Close()
 		dataStorager.Close()
 		statusStorager.Close()
@@ -66,6 +69,12 @@ func InitDataLoader(ctx context.Context, db *gorm.DB, cmd redis.Cmdable, notifie
 		close(dataChan)
 		close(statusChan)
 	}()
+
+	return &DataLoaderContainer{
+		genericPersistence:     genericPersistence,
+		genericDataProcessor:   dataProcessor,
+		genericStatusProcessor: statusProcessor,
+	}
 }
 
 func initMQTTReceiver(ctx context.Context, brokerUrl, username, password string, dataChan, statusChan chan *receiver.Message) receiver.Receiver {
@@ -85,30 +94,24 @@ func initRedisStorager(cmd redis.Cmdable) storage.Storager {
 
 func initMqttProcessor(ctx context.Context, dataChan,
 	statusChan chan *receiver.Message,
-	dataS, statusS storage.Storager,
-	notifier notify.NotifierSub) []processor.ProcessorFactory {
+	dataS, statusS storage.Storager) (genericDataProcessor *processor.GenericProcessor, genericStatusProcessor *processor.GenericProcessor) {
 
 	mqttProcessor := processor.NewMQTTProcessor()
-	genericDataProcessor := processor.NewGenericProcessor(ctx, dataChan, 3, dataS)
+	genericDataProcessor = processor.NewGenericProcessor(ctx, dataChan, 3, dataS)
 	processor.RegisterHandler(genericDataProcessor, dataloader.MsgTypeData, mqttProcessor.HandlerData, "handler mqtt data")
 	err := genericDataProcessor.Start()
 	if err != nil {
 		logger.Error("data processor start failed", "err", err)
-		return nil
+		return nil, nil
 	}
 
-	genericStatusProcessor := processor.NewGenericProcessor(ctx, statusChan, 3, statusS)
+	genericStatusProcessor = processor.NewGenericProcessor(ctx, statusChan, 3, statusS)
 	processor.RegisterHandler(genericStatusProcessor, dataloader.MsgTypeStatus, mqttProcessor.HandlerStatus, "handler mqtt status")
 	err = genericStatusProcessor.Start()
 	if err != nil {
 		logger.Error("status processor start failed", "err", err)
-		return nil
+		return nil, nil
 	}
 
-	// 注册设备的配置变动监听
-	logger.Info("register device config subscribe by redis")
-	notifier.Register(notify.DeviceNotifyType, genericDataProcessor.Notify)   // 设备数据处理器监听配置变动
-	notifier.Register(notify.DeviceNotifyType, genericStatusProcessor.Notify) // 设备状态处理器监听配置变动
-
-	return []processor.ProcessorFactory{genericDataProcessor, genericStatusProcessor}
+	return
 }

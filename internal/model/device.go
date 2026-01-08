@@ -61,15 +61,17 @@ func (d DevicePropertyRef) TableName() string {
 }
 
 type DevicePropertyDetail struct {
-	Id         int                  `json:"id"`
-	Persistent bool                 `json:"persistent"`
-	StoreMode  StoreMode            `json:"store_mode"`
-	PropertyId int                  `json:"property_id"`
-	Key        string               `json:"key"`
-	Name       string               `json:"name"`
-	DataType   ThingModelDataType   `json:"data_type"`
-	Unit       string               `json:"unit"`
-	SourceType ThingModelSourceType `json:"source_type"`
-	Expr       string               `json:"expr"`
-	Type       ThingModelType       `json:"type"`
+	Id           int                  `json:"id"`          // 设备属性关系表 id
+	Persistent   bool                 `json:"persistent"`  // 持久化
+	StoreMode    StoreMode            `json:"store_mode"`  // 存储模式
+	PropertyId   int                  `json:"property_id"` // 物模型属性 id
+	PropertyKey  string               `json:"key"`         // 物模型属性 key
+	DeviceId     int                  `json:"device_id"`   // 设备 id
+	DeviceKey    string               `json:"device_key"`  // 设备 key
+	PropertyName string               `json:"name"`        // 物模型属性名称
+	DataType     ThingModelDataType   `json:"data_type"`   // 数据类型
+	Unit         string               `json:"unit"`        // 单位
+	SourceType   ThingModelSourceType `json:"source_type"` // 数据源类型
+	Expr         string               `json:"expr"`        // 公式
+	Type         ThingModelType       `json:"type"`        // 物模型功能类型（属性，功能，事件）
 }

@@ -11,7 +11,7 @@ type Processor interface {
 	Name() string
 }
 
-type ProcessorFactory interface {
-	Start() error
-	Close()
-}
+//type ProcessorFactory interface {
+//	Start() error
+//	Close()
+//}

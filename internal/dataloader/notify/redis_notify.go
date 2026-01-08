@@ -18,9 +18,9 @@ type RedisNotifierSub struct {
 	channelName string
 }
 
-func NewRedisNotifierSub(ctx context.Context, channelName string, client *redis.Client) NotifierSub {
+func NewRedisNotifierSub(channelName string, client *redis.Client) NotifierSub {
 	return &RedisNotifierSub{
-		baseNotifier: newBaseNotifier(ctx),
+		baseNotifier: newBaseNotifier(context.Background()),
 		client:       client,
 		channelName:  channelName,
 	}
@@ -83,14 +83,13 @@ type RedisNotifierPub struct {
 	channelName string
 }
 
-func (r *RedisNotifierPub) DeviceConfigChange(ctx context.Context,
-	notifyType NotifyType, operation OperationType,
+func (r *RedisNotifierPub) DeviceConfigChange(ctx context.Context, operation OperationType,
 	data *dataloader.DeviceInfo) error {
 	if data == nil {
 		return errors.New("data is nil")
 	}
 
-	if err := r.publishEvent(ctx, notifyType, operation, data.DeviceKey, data); err != nil {
+	if err := r.publishEvent(ctx, DeviceNotifyType, operation, data.DeviceKey, data); err != nil {
 		return err
 	}
 
@@ -98,13 +97,20 @@ func (r *RedisNotifierPub) DeviceConfigChange(ctx context.Context,
 }
 
 func (r *RedisNotifierPub) DevicePropChange(ctx context.Context,
-	notifyType NotifyType, operation OperationType, data []*dataloader.DevicePropInfo) error {
+	operation OperationType, data []*dataloader.DevicePropInfo) error {
 	if data == nil || len(data) == 0 {
 		return errors.New("data is nil or len is zero")
 	}
-	if err := r.publishEvent(ctx, notifyType, operation, data[0].DeviceKey, data); err != nil {
-		return err
+	var deviceProps = make(map[string][]*dataloader.DevicePropInfo)
+	for _, propInfo := range data {
+		deviceProps[propInfo.DeviceKey] = append(deviceProps[propInfo.DeviceKey], propInfo)
 	}
+	for deviceKey, propInfos := range deviceProps {
+		if err := r.publishEvent(ctx, DevicePropertyNotifyType, operation, deviceKey, propInfos); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -138,4 +144,8 @@ func NewRedisNotifierPub(cmd redis.Cmdable, channelName string) NotifierPub {
 
 func ProvideNotifierPub(cmd redis.Cmdable) NotifierPub {
 	return NewRedisNotifierPub(cmd, DeviceEventChannelName)
+}
+
+func ProvideNotifierSub(client *redis.Client) NotifierSub {
+	return NewRedisNotifierSub(DeviceEventChannelName, client)
 }

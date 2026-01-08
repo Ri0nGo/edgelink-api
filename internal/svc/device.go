@@ -3,8 +3,11 @@ package svc
 import (
 	"context"
 	"edgelink-api/internal/api/dto"
+	"edgelink-api/internal/dataloader"
+	"edgelink-api/internal/dataloader/notify"
 	"edgelink-api/internal/model"
 	bizErr "edgelink-api/internal/pkg/bizerr"
+	"edgelink-api/internal/pkg/logger"
 	"edgelink-api/internal/repo"
 	"errors"
 	"fmt"
@@ -46,19 +49,46 @@ func (s *DeviceSvc) CreateDevice(ctx context.Context, req *dto.ReqDevice) error 
 		Address:     datatypes.NewJSONType(s.generateAddress(productModel.Identifier, req.Key)),
 		Description: req.Description,
 	}
-	props, err := s.tmpRepo.GetThingModelPropsByModelId(ctx, productModel.ModelId)
+	props, err := s.tmpRepo.GetThingModelPropsByModelId(ctx, productModel.ThingModelId)
 	if err != nil {
 		return err
 	}
-	var deviceProps = make([]model.DevicePropertyRef, len(props))
+	var (
+		deviceProps       = make([]model.DevicePropertyRef, len(props))
+		notifyDeviceProps = make([]*dataloader.DevicePropInfo, len(props))
+	)
 	for i, prop := range props {
 		deviceProps[i] = model.DevicePropertyRef{
 			PropertyId: prop.Id,
 			Persistent: true,
 			StoreMode:  model.StoreModeMinute,
 		}
+		notifyDeviceProps[i] = &dataloader.DevicePropInfo{
+			DeviceId:    DeviceDao.Id,
+			DeviceKey:   DeviceDao.Key,
+			PropertyId:  prop.Id,
+			PropertyKey: prop.Key,
+		}
 	}
-	return s.deviceRepo.CreateDevice(ctx, DeviceDao, deviceProps)
+	if err = s.deviceRepo.CreateDevice(ctx, DeviceDao, deviceProps); err != nil {
+		return err
+	}
+
+	// todo 后续可以改成发布的形式，在发布时才通知设备
+	if err = notify.DeviceConfigChange(ctx, notify.OperationTypeCreated, &dataloader.DeviceInfo{
+		DeviceId:          DeviceDao.Id,
+		DeviceKey:         DeviceDao.Key,
+		ProductIdentifier: productModel.Identifier,
+	}); err != nil {
+		logger.Error("notify device config failed by create", "err", err)
+		return err
+	}
+
+	if err = notify.DevicePropChange(ctx, notify.OperationTypeCreated, notifyDeviceProps); err != nil {
+		logger.Error("notify device props failed by create", "err", err)
+		return err
+	}
+	return nil
 }
 
 func (s *DeviceSvc) generateAddress(productKey, deviceKey string) model.DeviceAddress {
@@ -103,8 +133,12 @@ func (s *DeviceSvc) DeleteDevice(ctx context.Context, id int) error {
 	if err != nil {
 		return err
 	}
+
+	if err = s.deviceRepo.DeleteDevicePropByDeviceId(ctx, id); err != nil {
+		return err
+	}
 	// todo 这里还需要删除对应的历史数据
-	return s.deviceRepo.DeleteDevicePropByDeviceId(ctx, id)
+	return nil
 }
 
 func (s *DeviceSvc) GetDeviceById(ctx context.Context, id int) (*dto.RespDevice, error) {
@@ -121,7 +155,7 @@ func (s *DeviceSvc) GetDeviceById(ctx context.Context, id int) (*dto.RespDevice,
 	}
 	DeviceDao.ProductName = productModel.Name
 
-	// todo 查询该设备使用了哪些模型属性（设备下不允许编辑模型属性的标识符，数据类型）
+	// 查询该设备使用了哪些模型属性（设备下不允许编辑模型属性的标识符，数据类型）
 	props, err := s.deviceRepo.GetDevicePropByDeviceId(ctx, id)
 	if err != nil {
 		return nil, err
@@ -180,10 +214,47 @@ func (s *DeviceSvc) getProductsMap(ctx context.Context, productIds []int) (map[i
 // ---------------- 设备属性 ---------------- //
 
 func (s *DeviceSvc) UpdateDeviceProp(ctx context.Context, req *dto.ReqDeviceProp) error {
-	err := s.deviceRepo.UpdateDevicePropRef(ctx, model.DevicePropertyRef{
+	propDao, err := s.deviceRepo.GetDevicePropById(ctx, req.Id)
+	if err != nil {
+		return err
+	}
+
+	if err = s.deviceRepo.UpdateDevicePropRef(ctx, model.DevicePropertyRef{
 		Id:         req.Id,
 		Persistent: req.Persistent,
-	})
+	}); err != nil {
+		return err
+	}
+
+	if propDao.Persistent && !req.Persistent {
+		// 移除设备缓存中的属性
+		if err = notify.DevicePropChange(ctx, notify.OperationTypeDeleted, []*dataloader.DevicePropInfo{
+			{
+				DeviceId:   propDao.DeviceId,
+				PropertyId: propDao.PropertyId,
+			},
+		}); err != nil {
+			return err
+		}
+	}
+	if !propDao.Persistent && req.Persistent {
+		detail, err := s.deviceRepo.GetDevicePropDetailById(ctx, req.Id)
+		if err != nil {
+			return err
+		}
+		// 添加设备缓存中的属性
+		if err = notify.DevicePropChange(ctx, notify.OperationTypeCreated, []*dataloader.DevicePropInfo{
+			{
+				DeviceId:    detail.DeviceId,
+				DeviceKey:   detail.DeviceKey,
+				PropertyId:  detail.PropertyId,
+				PropertyKey: detail.PropertyKey,
+			},
+		}); err != nil {
+			return err
+		}
+	}
+
 	return err
 }
 

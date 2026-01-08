@@ -29,7 +29,7 @@ func (a *DeviceApi) RegistryRouter(g *gin.RouterGroup) {
 	// 设备属性
 	propGroup := group.Group("/prop")
 	propGroup.POST("/update", a.UpdateDeviceProp)
-	propGroup.POST("/delete", a.DeleteDeviceProp)
+	//propGroup.POST("/delete", a.DeleteDeviceProp) // 设备不允许删除属性
 }
 
 func (a *DeviceApi) CreateDevice(ctx *gin.Context) {

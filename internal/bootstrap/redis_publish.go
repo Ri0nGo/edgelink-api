@@ -15,7 +15,7 @@ func PublishDeviceConfigToRedis(ctx context.Context, db *gorm.DB, pub notify.Not
 		return err
 	}
 	for _, info := range deviceInfos {
-		err = pub.DeviceConfigChange(ctx, notify.DeviceNotifyType, notify.OperationTypeCreated, &info)
+		err = pub.DeviceConfigChange(ctx, notify.OperationTypeCreated, &info)
 		if err != nil {
 			return err
 		}
@@ -49,17 +49,13 @@ func PublishDevicePropsToRedis(ctx context.Context, db *gorm.DB, pub notify.Noti
 		return err
 	}
 
-	devicePropM := make(map[int][]*dataloader.DevicePropInfo)
-	for _, prop := range props {
-		devicePropM[prop.DeviceId] = append(devicePropM[prop.DeviceId], prop)
+	deviceProps := make([]*dataloader.DevicePropInfo, len(props))
+	for idx, prop := range props {
+		deviceProps[idx] = prop
 	}
 
-	for _, deviceProps := range devicePropM {
-		err = pub.DevicePropChange(ctx, notify.DevicePropertyNotifyType, notify.OperationTypeCreated, deviceProps)
-		if err != nil {
-			return err
-		}
-		//logger.Info("notify device props success", "device_id", deviceId, "length", len(deviceProps))
+	if err = pub.DevicePropChange(ctx, notify.OperationTypeCreated, deviceProps); err != nil {
+		return err
 	}
 	logger.Info("publish device props to redis")
 	return nil
@@ -70,10 +66,12 @@ func getDevicePropInfos(ctx context.Context, db *gorm.DB) ([]*dataloader.DeviceP
 
 	if err := db.WithContext(ctx).
 		Raw(`
-SELECT t2.id device_id, t2.key as device_key, t3.id as property_id, t3.key as property_key from device_property_ref t1
+SELECT t2.id device_id, t2.key as device_key, t3.id as property_id, t3.key as property_key 
+FROM device_property_ref t1
 INNER JOIN device t2
 INNER JOIN thing_model_property t3
-ON t1.device_id = t2.id AND t1.property_id = t3.id;
+ON t1.device_id = t2.id AND t1.property_id = t3.id
+WHERE t1.persistent = 1;
 `).
 		Scan(&deviceInfos).Error; err != nil {
 		return nil, err

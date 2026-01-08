@@ -2,11 +2,13 @@ package api
 
 import (
 	"edgelink-api/internal/api/dto"
+	bizErr "edgelink-api/internal/pkg/bizerr"
 	"edgelink-api/internal/pkg/ginx/handler"
 	"edgelink-api/internal/pkg/ginx/response"
 	"edgelink-api/internal/pkg/logger"
 	"edgelink-api/internal/svc"
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -26,7 +28,6 @@ func (a *ThingModelApi) RegistryRouter(g *gin.RouterGroup) {
 	group.GET("/list", a.GetThingModelList)
 
 	// thing model property
-	// todo 待实现
 	propGroup := group.Group("/prop")
 	propGroup.POST("/create", a.CreateThingModelProp) // 新增属性后，需要手动同步属性到设备
 	propGroup.POST("/update", a.UpdateThingModelProp) // 更新属性，注意同步设备监听
@@ -40,6 +41,15 @@ func (a *ThingModelApi) CreateThingModel(ctx *gin.Context) {
 		logger.Error("add thing model err", "err", err)
 		handler.HandlerError(ctx, response.RespCodeParamErr, err)
 		return
+	}
+
+	var keyMap = make(map[string]struct{})
+	for _, funcType := range req.FuncTypes {
+		_, ok := keyMap[funcType.Key]
+		if ok {
+			handler.HandlerError(ctx, response.RespCodeParamErr, bizErr.NewBizError(fmt.Sprintf("标识符: %s 重复", funcType.Key)))
+		}
+		keyMap[funcType.Key] = struct{}{}
 	}
 
 	if err := a.tmSvc.CreateThingModel(ctx.Request.Context(), &req); err != nil {

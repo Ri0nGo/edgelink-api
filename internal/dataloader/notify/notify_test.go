@@ -24,8 +24,8 @@ func TestNewDeviceEventNotify(t *testing.T) {
 	client, ok := cmd.(*redis.Client)
 	assert.True(t, ok)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	rn := NewRedisNotifier(ctx, DeviceEventChannelName, client)
+	//ctx, cancel := context.WithCancel(context.Background())
+	rn := NewRedisNotifierSub(DeviceEventChannelName, client)
 	rn.Register(DeviceNotifyType, func(ctx context.Context, event *Event) error {
 		logger.Info("receive event", "type", event.NotifyType, "operation", event.Operation,
 			"key", event.DeviceKey, "payload", event.Payload)
@@ -34,6 +34,5 @@ func TestNewDeviceEventNotify(t *testing.T) {
 	rn.Start()
 
 	<-time.After(time.Minute * 3)
-	cancel()
-	time.Sleep(time.Second * 3)
+	rn.Close()
 }

@@ -16,23 +16,90 @@ type IDeviceRepo interface {
 	GetDeviceById(ctx context.Context, id int) (model.Device, error)
 	GetDevicesByProductId(ctx context.Context, productId int) ([]model.Device, error)
 	GetDeviceList(ctx context.Context, page dto.Page) (dto.Page, error)
+	GetDevicesByThingModelID(ctx context.Context, modelId int) ([]model.Device, error)
 
 	// device property
 	UpdateDevicePropRef(ctx context.Context, props model.DevicePropertyRef) error
 	DeleteDeviceProps(ctx context.Context, id []int) error
 	DeleteDevicePropByDeviceId(ctx context.Context, deviceId int) error
 	GetDevicePropByDeviceId(ctx context.Context, deviceId int) ([]model.DevicePropertyDetail, error)
+	GetDevicePropsByPropId(ctx context.Context, propId int) ([]model.DevicePropertyRef, error)
+	GetDevicePropById(ctx context.Context, id int) (model.DevicePropertyRef, error)
+	GetDevicePropDetailById(ctx context.Context, id int) (model.DevicePropertyDetail, error)
+	CreateDevicePropRef(ctx context.Context, props []model.DevicePropertyRef) error
 }
 
 type DeviceRepo struct {
 	db *gorm.DB
 }
 
+// GetDevicePropDetailById 获取设备及物模型属性详情
+func (r *DeviceRepo) GetDevicePropDetailById(ctx context.Context, id int) (model.DevicePropertyDetail, error) {
+	var prop model.DevicePropertyDetail
+	err := r.db.WithContext(ctx).
+		Raw(`
+SELECT
+    t1.id, t1.persistent, t1.store_mode,
+    t2.id as property_id, t2.key as property_key, t2.name as property_name, t2.data_type, t2.unit, t2.source_type, t2.expr, t2.type,
+    t3.id as device_id, t3.key as device_key
+FROM device_property_ref t1
+INNER JOIN thing_model_property t2
+INNER JOIN device t3
+ON t1.property_id = t2.id AND t1.device_id = t3.id
+WHERE t1.id
+`, id).
+		First(&prop).
+		Error
+	return prop, err
+}
+
+func (r *DeviceRepo) GetDevicePropById(ctx context.Context, id int) (model.DevicePropertyRef, error) {
+	var result model.DevicePropertyRef
+	err := r.db.WithContext(ctx).
+		Where("id = ?", id).
+		First(&result).
+		Error
+	return result, err
+}
+
+// GetDevicePropsByPropId 通过属性id查询
+func (r *DeviceRepo) GetDevicePropsByPropId(ctx context.Context, propId int) ([]model.DevicePropertyRef, error) {
+	var results []model.DevicePropertyRef
+	err := r.db.WithContext(ctx).
+		Where("property_id = ?", propId).
+		Find(&results).
+		Error
+	return results, err
+}
+
+func (r *DeviceRepo) CreateDevicePropRef(ctx context.Context, props []model.DevicePropertyRef) error {
+	return r.db.WithContext(ctx).
+		Create(props).
+		Error
+}
+
+// GetDevicesByThingModelID 通过物模型id查询设备列表
+func (r *DeviceRepo) GetDevicesByThingModelID(ctx context.Context, modelId int) ([]model.Device, error) {
+	var results []model.Device
+	err := r.db.WithContext(ctx).
+		Raw(`
+SELECT t1.* from device t1
+INNER JOIN product t2
+INNER JOIN thing_model t3
+ON t1.product_id = t2.id AND t2.thing_model_id = t3.id
+WHERE t3.id = ?;
+`, modelId).
+		Find(&results).
+		Error
+	return results, err
+}
+
+// GetDevicePropByDeviceId 查询设备使用了哪些模型属性
 func (r *DeviceRepo) GetDevicePropByDeviceId(ctx context.Context, deviceId int) ([]model.DevicePropertyDetail, error) {
 	var props []model.DevicePropertyDetail
 	err := r.db.WithContext(ctx).
 		Raw(`
-SELECT t1.id, t1.persistent, t1.store_mode, t2.id as property_id, t2.key, t2.name, t2.data_type, t2.unit, t2.source_type, t2.expr, t2.type 
+SELECT t1.id, t1.persistent, t1.store_mode, t2.id as property_id, t2.key as property_key, t2.name as property_name, t2.data_type, t2.unit, t2.source_type, t2.expr, t2.type 
 FROM device_property_ref t1
 INNER JOIN thing_model_property t2
 ON t1.property_id = t2.id

@@ -10,15 +10,24 @@ import (
 )
 
 type IThingModelPropRepo interface {
-	CreateThingModelProp(ctx context.Context, tm *model.ThingModelProperty) error
-	UpdateThingModelProp(ctx context.Context, tm *model.ThingModelProperty) error
+	CreateThingModelProp(ctx context.Context, tmp *model.ThingModelProperty) error
+	UpdateThingModelProp(ctx context.Context, tmp *model.ThingModelProperty) error
 	DeleteThingModelPropByModelId(ctx context.Context, modelId int) error
+	DeleteThingModelProp(ctx context.Context, id int) error
 	GetThingModelPropsByModelId(ctx context.Context, modelId int) ([]model.ThingModelProperty, error)
 	GetThingModelPropList(ctx context.Context, page dto.Page) (dto.Page, error)
 }
 
 type ThingModelPropRepo struct {
 	db *gorm.DB
+}
+
+func (r *ThingModelPropRepo) DeleteThingModelProp(ctx context.Context, id int) error {
+	return r.db.
+		WithContext(ctx).
+		Where("property_id = ?", id).
+		Delete(&model.ThingModelProperty{}).
+		Error
 }
 
 func (r *ThingModelPropRepo) GetThingModelPropsByModelId(ctx context.Context, modelId int) ([]model.ThingModelProperty, error) {
@@ -30,19 +39,19 @@ func (r *ThingModelPropRepo) GetThingModelPropsByModelId(ctx context.Context, mo
 	return results, err
 }
 
-func (r *ThingModelPropRepo) CreateThingModelProp(ctx context.Context, tm *model.ThingModelProperty) error {
+func (r *ThingModelPropRepo) CreateThingModelProp(ctx context.Context, tmp *model.ThingModelProperty) error {
 	err := r.db.
 		WithContext(ctx).
-		Create(&tm).
+		Create(&tmp).
 		Error
 	return err
 }
 
-func (r *ThingModelPropRepo) UpdateThingModelProp(ctx context.Context, tm *model.ThingModelProperty) error {
+func (r *ThingModelPropRepo) UpdateThingModelProp(ctx context.Context, tmp *model.ThingModelProperty) error {
 	return r.db.
 		WithContext(ctx).
-		Where("id = ?", tm.Id).
-		Updates(&tm).
+		Where("id = ?", tmp.Id).
+		Updates(&tmp).
 		Error
 }
 

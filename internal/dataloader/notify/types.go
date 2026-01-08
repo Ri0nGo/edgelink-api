@@ -52,7 +52,7 @@ type NotifierSub interface {
 // NotifierPub 发布配置接口
 type NotifierPub interface {
 	// 发布设备配置变更
-	DeviceConfigChange(ctx context.Context, notifyType NotifyType, operation OperationType, data *dataloader.DeviceInfo) error
-	// 设备属性变更(一个设备下的属性列表)
-	DevicePropChange(ctx context.Context, notifyType NotifyType, operation OperationType, data []*dataloader.DevicePropInfo) error
+	DeviceConfigChange(ctx context.Context, operation OperationType, data *dataloader.DeviceInfo) error
+	// 设备属性变更, 按照设备进行分组
+	DevicePropChange(ctx context.Context, operation OperationType, data []*dataloader.DevicePropInfo) error
 }

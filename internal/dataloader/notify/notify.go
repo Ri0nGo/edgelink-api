@@ -2,9 +2,13 @@ package notify
 
 import (
 	"context"
+	"edgelink-api/internal/dataloader"
 	"edgelink-api/internal/pkg/logger"
+	"errors"
 	"sync"
 )
+
+// ---------------- 提取公共方法部分 ---------------- //
 
 // baseNotifier 抽离的通用部分：负责注册、分发
 type baseNotifier struct {
@@ -45,4 +49,37 @@ func (b *baseNotifier) Dispatch(ctx context.Context, event *Event) {
 			// continue 而非 break，允许其他 handler 继续执行
 		}
 	}
+}
+
+// ---------------- 提供包级别的方法 ---------------- //
+
+/*
+gpt 说这是一种依赖倒置，还不是很理解
+本意是不想把NotifierPub放入到wire中，因为每个需要的svc都需要注入，很容易造成NewXXXSvc方法的入参过多
+*/
+
+var notifierPublisher NotifierPub = &noopPublisher{}
+
+func InitPub(pub NotifierPub) {
+	if pub != nil {
+		notifierPublisher = pub
+	}
+}
+
+func DeviceConfigChange(ctx context.Context, operation OperationType, data *dataloader.DeviceInfo) error {
+	return notifierPublisher.DeviceConfigChange(ctx, operation, data)
+}
+
+func DevicePropChange(ctx context.Context, operation OperationType, data []*dataloader.DevicePropInfo) error {
+	return notifierPublisher.DevicePropChange(ctx, operation, data)
+}
+
+type noopPublisher struct{}
+
+func (n *noopPublisher) DeviceConfigChange(ctx context.Context, operation OperationType, data *dataloader.DeviceInfo) error {
+	return errors.New("notifierPublisher is not initialized")
+}
+
+func (n *noopPublisher) DevicePropChange(ctx context.Context, operation OperationType, data []*dataloader.DevicePropInfo) error {
+	return errors.New("notifierPublisher is not initialized")
 }

@@ -3,6 +3,8 @@ package svc
 import (
 	"context"
 	"edgelink-api/internal/api/dto"
+	"edgelink-api/internal/dataloader"
+	"edgelink-api/internal/dataloader/notify"
 	"edgelink-api/internal/model"
 	bizErr "edgelink-api/internal/pkg/bizerr"
 	"edgelink-api/internal/repo"
@@ -28,6 +30,7 @@ type ThingModelSvc struct {
 	tmRepo      repo.IThingModelRepo
 	tmpRepo     repo.IThingModelPropRepo
 	productRepo repo.IProductRepo
+	deviceRepo  repo.IDeviceRepo
 }
 
 func (s *ThingModelSvc) CreateThingModel(ctx context.Context, req *dto.ReqThingModel) error {
@@ -121,8 +124,8 @@ func (s *ThingModelSvc) CreateThingModelProp(ctx context.Context, req *dto.ReqTh
 	if err != nil {
 		return bizErr.NewBizError("模型不存在")
 	}
-	// todo 新增属性后，需要查询该物模型是否有设备使用，如果有的话则需要同步至所有设备
-	return s.tmpRepo.CreateThingModelProp(ctx, &model.ThingModelProperty{
+
+	propDao := &model.ThingModelProperty{
 		ModelId:    req.ModelId,
 		Key:        req.Key,
 		Name:       req.Name,
@@ -131,7 +134,46 @@ func (s *ThingModelSvc) CreateThingModelProp(ctx context.Context, req *dto.ReqTh
 		Unit:       req.Unit,
 		SourceType: req.SourceType,
 		Expr:       req.Expr,
-	})
+	}
+	if err = s.tmpRepo.CreateThingModelProp(ctx, propDao); err != nil {
+		return err
+	}
+
+	// 查询使用了该物模型的所有设备
+	devices, err := s.deviceRepo.GetDevicesByThingModelID(ctx, req.ModelId)
+	if err != nil {
+		return err
+	}
+
+	var (
+		deviceProps    = make([]*dataloader.DevicePropInfo, len(devices))
+		devicePropRefs = make([]model.DevicePropertyRef, len(devices))
+	)
+	for idx, device := range devices {
+		deviceProps[idx] = &dataloader.DevicePropInfo{
+			DeviceId:    device.Id,
+			DeviceKey:   device.Key,
+			PropertyId:  propDao.Id,
+			PropertyKey: propDao.Key,
+		}
+		devicePropRefs[idx] = model.DevicePropertyRef{
+			Id:         0,
+			DeviceId:   device.Id,
+			PropertyId: propDao.Id,
+			Persistent: true,
+			StoreMode:  model.StoreModeMinute,
+		}
+	}
+	// 同步属性到使用了该模型的所有设备
+	if err = s.deviceRepo.CreateDevicePropRef(ctx, devicePropRefs); err != nil {
+		return err
+	}
+
+	// 通知存储器更新缓存
+	if err = notify.DevicePropChange(ctx, notify.OperationTypeCreated, deviceProps); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *ThingModelSvc) UpdateThingModelProp(ctx context.Context, req *dto.ReqThingModelProp) error {
@@ -139,8 +181,9 @@ func (s *ThingModelSvc) UpdateThingModelProp(ctx context.Context, req *dto.ReqTh
 	if err != nil {
 		return bizErr.NewBizError("模型不存在")
 	}
-	// todo 更新属性后，需要查询该物模型是否有设备使用，如果有的话则需要同步至所有设备
-	return s.tmpRepo.UpdateThingModelProp(ctx, &model.ThingModelProperty{
+
+	propDao := &model.ThingModelProperty{
+		Id:         req.Id,
 		ModelId:    req.ModelId,
 		Key:        req.Key,
 		Name:       req.Name,
@@ -149,12 +192,53 @@ func (s *ThingModelSvc) UpdateThingModelProp(ctx context.Context, req *dto.ReqTh
 		Unit:       req.Unit,
 		SourceType: req.SourceType,
 		Expr:       req.Expr,
-	})
+	}
+	if err = s.tmpRepo.UpdateThingModelProp(ctx, propDao); err != nil {
+		return err
+	}
+
+	// 查询使用了该物模型的所有设备
+	devices, err := s.deviceRepo.GetDevicesByThingModelID(ctx, req.ModelId)
+	if err != nil {
+		return err
+	}
+
+	var deviceProps = make([]*dataloader.DevicePropInfo, len(devices))
+	for idx, device := range devices {
+		deviceProps[idx] = &dataloader.DevicePropInfo{
+			DeviceId:    device.Id,
+			DeviceKey:   device.Key,
+			PropertyId:  propDao.Id,
+			PropertyKey: propDao.Key,
+		}
+	}
+
+	// 通知存储器更新缓存
+	if err = notify.DevicePropChange(ctx, notify.OperationTypeUpdated, deviceProps); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *ThingModelSvc) DeleteThingModelProp(ctx context.Context, id int) error {
-	// todo 删除增属性后，需要查询该物模型是否有设备使用，如果有的话则需要同步至所有设备
-	return s.tmpRepo.DeleteThingModelPropByModelId(ctx, id)
+	if err := s.tmpRepo.DeleteThingModelProp(ctx, id); err != nil {
+		return err
+	}
+	props, err := s.deviceRepo.GetDevicePropsByPropId(ctx, id)
+	if err != nil {
+		return err
+	}
+	var deviceProps = make([]*dataloader.DevicePropInfo, len(props))
+	for i, prop := range props {
+		deviceProps[i] = &dataloader.DevicePropInfo{
+			DeviceId:   prop.DeviceId,
+			PropertyId: prop.PropertyId,
+		}
+	}
+	if err = notify.DevicePropChange(ctx, notify.OperationTypeDeleted, deviceProps); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *ThingModelSvc) GetThingModelPropList(ctx context.Context, modelId int, search string, page dto.Page) (dto.Page, error) {
@@ -166,10 +250,12 @@ func (s *ThingModelSvc) GetThingModelPropList(ctx context.Context, modelId int, 
 	return page, nil
 }
 
-func NewThingModelSvc(tmRepo repo.IThingModelRepo, tmpRepo repo.IThingModelPropRepo, productRepo repo.IProductRepo) IThingModelSvc {
+func NewThingModelSvc(tmRepo repo.IThingModelRepo, tmpRepo repo.IThingModelPropRepo,
+	productRepo repo.IProductRepo, deviceRepo repo.IDeviceRepo) IThingModelSvc {
 	return &ThingModelSvc{
 		tmRepo:      tmRepo,
 		tmpRepo:     tmpRepo,
 		productRepo: productRepo,
+		deviceRepo:  deviceRepo,
 	}
 }

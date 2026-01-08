@@ -11,7 +11,7 @@ type ReqDevice struct {
 }
 
 type ReqDeviceProp struct {
-	Id         int  `json:"id"`         // 属性id
+	Id         int  `json:"id"`         // 设备属性关系表的 id
 	Persistent bool `json:"persistent"` // 持久化
 	DeviceId   int  `json:"device_id"`
 }
