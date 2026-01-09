@@ -20,6 +20,7 @@ type MQTTConfig struct {
 	Password          string
 	DataTopic         string
 	StatusTopic       string
+	SSL               bool
 	Qos               byte
 	KeepAlive         time.Duration // client-server 心跳检测时间
 	ConnectTimeout    time.Duration // 连接时间
@@ -94,5 +95,11 @@ func WithDisconnectTimeout(timeout uint) MQTTOption {
 func WithKeepAlive(time time.Duration) MQTTOption {
 	return func(c *MQTTConfig) {
 		c.KeepAlive = time
+	}
+}
+
+func WithSSLOption(ssl bool) MQTTOption {
+	return func(c *MQTTConfig) {
+		c.SSL = ssl
 	}
 }

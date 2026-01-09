@@ -47,9 +47,11 @@ func InitDataLoader(ctx context.Context, db *gorm.DB, cmd redis.Cmdable) *DataLo
 	statusStorager := initRedisStorager(cmd)
 
 	// 初始化接收器
-	mqttReceiver := initMQTTReceiver(ctx, fmt.Sprintf("tcp://%s:%d", viper.GetString("mqtt.host"), viper.GetInt("mqtt.port")),
+	mqttReceiver := initMQTTReceiver(ctx, viper.GetString("mqtt.host"),
 		viper.GetString("mqtt.username"),
 		viper.GetString("mqtt.password"),
+		viper.GetInt("mqtt.port"),
+		viper.GetBool("mqtt.ssl"),
 		dataChan, statusChan)
 
 	// 初始化处理器
@@ -77,7 +79,13 @@ func InitDataLoader(ctx context.Context, db *gorm.DB, cmd redis.Cmdable) *DataLo
 	}
 }
 
-func initMQTTReceiver(ctx context.Context, brokerUrl, username, password string, dataChan, statusChan chan *receiver.Message) receiver.Receiver {
+func initMQTTReceiver(ctx context.Context, host, username, password string, port int, ssl bool,
+	dataChan, statusChan chan *receiver.Message) receiver.Receiver {
+	var protocol = "tcp"
+	if ssl {
+		protocol = "ssl"
+	}
+	brokerUrl := fmt.Sprintf("%s://%s:%d", protocol, host, port)
 	cfg := receiver.NewMQTTConfig(brokerUrl, username, password)
 	mqttReceiver := receiver.NewMQTTReceiver(ctx, cfg, dataChan, statusChan)
 	err := mqttReceiver.Start()

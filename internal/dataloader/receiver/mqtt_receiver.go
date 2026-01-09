@@ -2,6 +2,7 @@ package receiver
 
 import (
 	"context"
+	"crypto/tls"
 	"edgelink-api/internal/dataloader"
 	"edgelink-api/internal/pkg/logger"
 	"errors"
@@ -80,6 +81,13 @@ func (r *MQTTReceiver) initMQTTFunc() *mqtt.ClientOptions {
 		SetAutoReconnect(true).
 		SetConnectRetry(true).
 		SetConnectRetryInterval(time.Minute)
+
+	if r.mqttCfg.SSL {
+		tslCfg := &tls.Config{
+			InsecureSkipVerify: true,
+		}
+		opts.SetTLSConfig(tslCfg)
+	}
 
 	// 当接收到与任何已知订阅不匹配的消息时将调用该MessageHandler
 	//opts.SetDefaultPublishHandler(r.onMessageReceived)
