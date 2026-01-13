@@ -99,7 +99,8 @@ func (r *RedisNotifierPub) DeviceConfigChange(ctx context.Context, operation Ope
 func (r *RedisNotifierPub) DevicePropChange(ctx context.Context,
 	operation OperationType, data []*dataloader.DevicePropInfo) error {
 	if data == nil || len(data) == 0 {
-		return errors.New("data is nil or len is zero")
+		logger.Warn("data is nil or len is zero")
+		return nil
 	}
 	var deviceProps = make(map[string][]*dataloader.DevicePropInfo)
 	for _, propInfo := range data {

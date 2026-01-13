@@ -63,7 +63,7 @@ CREATE TABLE `device_property_ref` (
   `device_id` bigint NOT NULL,
   `property_id` bigint NOT NULL COMMENT '物模型属性id',
   `persistent` tinyint(1) DEFAULT '1' COMMENT '是否存历史数据',
-  `store_mode` varchar(16) DEFAULT 'min' COMMENT '数据存储方式，full全量存储,change值变化才存储, minute整点数据',
+  `store_mode` varchar(16) DEFAULT 'minute' COMMENT '数据存储方式，full全量存储,change值变化才存储, minute整点数据',
   `created_time` datetime DEFAULT NULL,
   `updated_time` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
