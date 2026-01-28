@@ -7,5 +7,5 @@ import (
 )
 
 func Success(ctx *gin.Context, data ...any) {
-	response.Success(ctx, data)
+	response.Success(ctx, data...)
 }

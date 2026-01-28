@@ -18,6 +18,8 @@ import (
 const (
 	DefaultDataChannelLength   = 10000
 	DefaultStatusChannelLength = 10000
+
+	DefaultProcessorWorkerNum = 3
 )
 
 //const (
@@ -105,7 +107,7 @@ func initMqttProcessor(ctx context.Context, dataChan,
 	dataS, statusS storage.Storager) (genericDataProcessor *processor.GenericProcessor, genericStatusProcessor *processor.GenericProcessor) {
 
 	mqttProcessor := processor.NewMQTTProcessor()
-	genericDataProcessor = processor.NewGenericProcessor(ctx, dataChan, 3, dataS)
+	genericDataProcessor = processor.NewGenericProcessor(ctx, dataChan, DefaultProcessorWorkerNum, dataS)
 	processor.RegisterHandler(genericDataProcessor, dataloader.MsgTypeData, mqttProcessor.HandlerData, "handler mqtt data")
 	err := genericDataProcessor.Start()
 	if err != nil {
@@ -113,7 +115,7 @@ func initMqttProcessor(ctx context.Context, dataChan,
 		return nil, nil
 	}
 
-	genericStatusProcessor = processor.NewGenericProcessor(ctx, statusChan, 3, statusS)
+	genericStatusProcessor = processor.NewGenericProcessor(ctx, statusChan, DefaultProcessorWorkerNum, statusS)
 	processor.RegisterHandler(genericStatusProcessor, dataloader.MsgTypeStatus, mqttProcessor.HandlerStatus, "handler mqtt status")
 	err = genericStatusProcessor.Start()
 	if err != nil {

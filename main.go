@@ -6,10 +6,11 @@ import (
 	"edgelink-api/internal/infrastructure/config"
 	"edgelink-api/internal/pkg/logger"
 	"flag"
-	"log/slog"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 type appConfig struct {
@@ -28,18 +29,18 @@ func parseFlag() appConfig {
 func main() {
 	appCfg := parseFlag()
 
+	config.InitConfigWithViper(appCfg.configPath)
+
 	if err := logger.InitLogger(logger.LogConfig{
-		Level:         slog.LevelInfo,
-		LogFmt:        logger.LogTextFormat,
-		FilePath:      "./run.log",
-		ShowLogSource: true,
+		Level:         viper.GetString("logger.level"),
+		LogFmt:        logger.LogFormat(viper.GetString("logger.format")),
+		FilePath:      viper.GetString("logger.filepath"),
+		ShowLogSource: viper.GetBool("logger.show_source"),
 	}); err != nil {
 		panic(err)
 	}
 
 	bizCtx, cancel := context.WithCancel(context.Background())
-
-	config.InitConfigWithViper(appCfg.configPath)
 
 	container, srv := bootstrap.InitApp()
 	bootstrap.Bootstrap(bizCtx, container, srv)

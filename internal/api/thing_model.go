@@ -32,7 +32,7 @@ func (a *ThingModelApi) RegistryRouter(g *gin.RouterGroup) {
 	propGroup.POST("/create", a.CreateThingModelProp) // 新增属性后，需要手动同步属性到设备
 	propGroup.POST("/update", a.UpdateThingModelProp) // 更新属性，注意同步设备监听
 	propGroup.POST("/delete", a.DeleteThingModelProp) // 检查是否有产品在使用，如果有在使用的话，则不允许删除
-	propGroup.POST("/list", a.GetThingModelPropList)
+	propGroup.GET("/list", a.GetThingModelPropList)
 }
 
 func (a *ThingModelApi) CreateThingModel(ctx *gin.Context) {
@@ -110,7 +110,7 @@ func (a *ThingModelApi) GetThingModelDetail(ctx *gin.Context) {
 		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
 		return
 	}
-	response.Success(ctx, tmDao)
+	handler.Success(ctx, tmDao)
 }
 
 func (a *ThingModelApi) GetThingModelList(ctx *gin.Context) {
@@ -125,7 +125,7 @@ func (a *ThingModelApi) GetThingModelList(ctx *gin.Context) {
 		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
 		return
 	}
-	response.Success(ctx, page)
+	handler.Success(ctx, page)
 }
 
 // ---------------- 物模型属性 ---------------- //
@@ -142,7 +142,7 @@ func (a *ThingModelApi) GetThingModelPropList(ctx *gin.Context) {
 		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
 		return
 	}
-	response.Success(ctx, page)
+	handler.Success(ctx, page)
 }
 
 func (a *ThingModelApi) CreateThingModelProp(ctx *gin.Context) {

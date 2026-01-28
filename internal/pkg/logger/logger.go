@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"runtime"
+	"strings"
 )
 
 type LogFormat string
@@ -18,7 +19,7 @@ const (
 var log *slog.Logger
 
 type LogConfig struct {
-	Level         slog.Level
+	Level         string // "debug;info;warning;error"
 	LogFmt        LogFormat
 	FilePath      string
 	ShowLogSource bool // 打印具体的行号
@@ -36,7 +37,7 @@ func InitLogger(cfg LogConfig) error {
 	}
 
 	var logOpts = &slog.HandlerOptions{
-		Level: cfg.Level,
+		Level: handleLogLevel(cfg.Level),
 	}
 	if cfg.ShowLogSource {
 		logOpts.AddSource = true
@@ -55,6 +56,21 @@ func InitLogger(cfg LogConfig) error {
 		4,
 	})
 	return nil
+}
+
+func handleLogLevel(level string) slog.Level {
+	switch strings.ToLower(level) {
+	case "debug":
+		return slog.LevelDebug
+	case "info":
+		return slog.LevelInfo
+	case "warning", "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }
 
 type wrapperHandler struct {
