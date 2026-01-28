@@ -83,6 +83,10 @@ func (s *DeviceSvc) CreateDevice(ctx context.Context, req *dto.ReqDevice) error 
 		logger.Error("notify device config failed by create", "err", err)
 		return err
 	}
+	// 更新设备 Id
+	for i, _ := range notifyDeviceProps {
+		notifyDeviceProps[i].DeviceId = DeviceDao.Id
+	}
 
 	if err = notify.DevicePropChange(ctx, notify.OperationTypeCreated, notifyDeviceProps); err != nil {
 		logger.Error("notify device props failed by create", "err", err)
