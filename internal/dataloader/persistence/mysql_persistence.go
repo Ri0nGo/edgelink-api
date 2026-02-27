@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"edgelink-api/internal/model"
 	"edgelink-api/internal/pkg/logger"
 	"edgelink-api/internal/utils"
 	"errors"
@@ -30,13 +31,13 @@ type MySQLPersistence struct {
 }
 
 // GetDatas 获取设备属性数据
-func (p *MySQLPersistence) GetDatas(ctx context.Context, deviceProps []DevicePropItem) ([]DevicePropData, error) {
+func (p *MySQLPersistence) GetDatas(ctx context.Context, deviceProps []DevicePropItem) ([]model.HistoryData, error) {
 	devicePropGroup, err := slice.SplitChunk(deviceProps, int(math.Min(float64(p.batchQuerySize), float64(len(deviceProps)))))
 	if err != nil {
 		return nil, err
 	}
 
-	var results = make([]DevicePropData, 0, len(deviceProps))
+	var results = make([]model.HistoryData, 0, len(deviceProps))
 	for _, propItems := range devicePropGroup {
 		data, err := p.getRedisDataByDeviceIds(ctx, propItems)
 		if err != nil {
@@ -49,7 +50,7 @@ func (p *MySQLPersistence) GetDatas(ctx context.Context, deviceProps []DevicePro
 }
 
 // BatchSave 批量插入数据
-func (p *MySQLPersistence) BatchSave(ctx context.Context, datas []DevicePropData) error {
+func (p *MySQLPersistence) BatchSave(ctx context.Context, datas []model.HistoryData) error {
 	dataGroup, err := slice.SplitChunk(datas, int(math.Min(float64(p.batchInsertSize), float64(len(datas)))))
 	if err != nil {
 		return err
@@ -62,7 +63,7 @@ func (p *MySQLPersistence) BatchSave(ctx context.Context, datas []DevicePropData
 	return nil
 }
 
-func (p *MySQLPersistence) getRedisDataByDeviceIds(ctx context.Context, deviceProps []DevicePropItem) ([]DevicePropData, error) {
+func (p *MySQLPersistence) getRedisDataByDeviceIds(ctx context.Context, deviceProps []DevicePropItem) ([]model.HistoryData, error) {
 	if len(deviceProps) == 0 {
 		return nil, nil
 	}
@@ -79,7 +80,7 @@ func (p *MySQLPersistence) getRedisDataByDeviceIds(ctx context.Context, devicePr
 	}
 
 	currentMinuteTime := utils.GetCurrentMinuteTime().Add(-time.Minute)
-	result := make([]DevicePropData, 0, len(cmders))
+	result := make([]model.HistoryData, 0, len(cmders))
 	for idx, cmd := range cmders {
 		valStr, err := cmd.Result()
 		if err != nil {
@@ -96,7 +97,7 @@ func (p *MySQLPersistence) getRedisDataByDeviceIds(ctx context.Context, devicePr
 			)
 			continue
 		}
-		result = append(result, DevicePropData{
+		result = append(result, model.HistoryData{
 			DeviceId:   deviceProps[idx].DeviceId,
 			PropertyId: deviceProps[idx].PropertyId,
 			Ts:         currentMinuteTime,
@@ -107,7 +108,7 @@ func (p *MySQLPersistence) getRedisDataByDeviceIds(ctx context.Context, devicePr
 	return result, nil
 }
 
-func (p *MySQLPersistence) batchInsertData(ctx context.Context, datas []DevicePropData) error {
+func (p *MySQLPersistence) batchInsertData(ctx context.Context, datas []model.HistoryData) error {
 	if p.db == nil {
 		return errors.New("db is nil")
 	}

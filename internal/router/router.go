@@ -26,10 +26,12 @@ func LoadRegistryRouters(
 	tmApi *api.ThingModelApi,
 	productApi *api.ProductApi,
 	deviceApi *api.DeviceApi,
+	metricApi *api.MetricApi,
 ) []RegistryRouter {
 	return []RegistryRouter{
 		tmApi,
 		productApi,
 		deviceApi,
+		metricApi,
 	}
 }

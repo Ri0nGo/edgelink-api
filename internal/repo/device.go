@@ -46,7 +46,7 @@ FROM device_property_ref t1
 INNER JOIN thing_model_property t2
 INNER JOIN device t3
 ON t1.property_id = t2.id AND t1.device_id = t3.id
-WHERE t1.id
+WHERE t1.id = ?
 `, id).
 		First(&prop).
 		Error

@@ -58,16 +58,19 @@ func InitWebServer() *Container {
 		repo.NewThingModelPropRepo,
 		repo.NewProductRepo,
 		repo.NewDeviceRepo,
+		repo.NewHistoryDataRepo,
 
 		// svc layer
 		svc.NewThingModelSvc,
 		svc.NewProductSvc,
 		svc.NewDeviceSvc,
+		svc.NewMetricSvc,
 
 		// api layer
 		api.NewThingModelApi,
 		api.NewProductApi,
 		api.NewDeviceApi,
+		api.NewMetricApi,
 
 		router.LoadRegistryRouters,
 		router.InitRouter,

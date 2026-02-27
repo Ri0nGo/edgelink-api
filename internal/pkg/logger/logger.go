@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -29,6 +30,10 @@ func InitLogger(cfg LogConfig) error {
 	var writer io.Writer = os.Stdout
 
 	if cfg.FilePath != "" {
+		if err := os.MkdirAll(filepath.Dir(cfg.FilePath), 0755); err != nil {
+			return err
+		}
+
 		file, err := os.OpenFile(cfg.FilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			return err

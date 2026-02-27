@@ -8,6 +8,11 @@ type ReqIds struct {
 	Ids []int `json:"ids"`
 }
 
+type BeginAndEnd struct {
+	Begin int64 `json:"begin"`
+	End   int64 `json:"end"`
+}
+
 type Page struct {
 	Total    int64  `json:"total" form:"total"`
 	PageSize int    `json:"page_size" form:"page_size"`

@@ -4,7 +4,6 @@ import (
 	"context"
 	"edgelink-api/internal/pkg/logger"
 	"fmt"
-	"log/slog"
 	"testing"
 	"time"
 )
@@ -23,7 +22,7 @@ func statusChanConsumer(dataChan <-chan *Message) {
 
 func TestNewMQTTReceiver(t *testing.T) {
 	logger.InitLogger(logger.LogConfig{
-		Level:         slog.LevelInfo,
+		Level:         "info",
 		LogFmt:        logger.LogTextFormat,
 		FilePath:      "./run.log",
 		ShowLogSource: true,
@@ -33,6 +32,7 @@ func TestNewMQTTReceiver(t *testing.T) {
 		"tcp://127.0.0.1:1883",
 		"admin",
 		"123456",
+		WithSSLOption(true),
 	)
 	ctx := context.Background()
 	var dataChan = make(chan *Message, 10000)
@@ -43,6 +43,35 @@ func TestNewMQTTReceiver(t *testing.T) {
 
 	mqttReceiver := NewMQTTReceiver(ctx, cfg, dataChan, statusChan)
 	mqttReceiver.Start()
+
+	time.Sleep(time.Minute * 2)
+	mqttReceiver.Close()
+}
+
+func TestNewMQTTConnect(t *testing.T) {
+	logger.InitLogger(logger.LogConfig{
+		Level:         "info",
+		LogFmt:        logger.LogTextFormat,
+		FilePath:      "./run.log",
+		ShowLogSource: true,
+	})
+
+	cfg := NewMQTTConfig(
+		"tcp://127.0.0.1:1883",
+		"admin",
+		"123456",
+		WithSSLOption(true),
+	)
+	ctx := context.Background()
+	var dataChan = make(chan *Message, 10000)
+	var statusChan = make(chan *Message, 10000)
+
+	mqttReceiver := NewMQTTReceiver(ctx, cfg, dataChan, statusChan)
+	err := mqttReceiver.connectMQTT()
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	time.Sleep(time.Minute * 2)
 	mqttReceiver.Close()
