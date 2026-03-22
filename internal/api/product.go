@@ -96,13 +96,13 @@ func (a *ProductApi) GetProductDetail(ctx *gin.Context) {
 }
 
 func (a *ProductApi) GetProductList(ctx *gin.Context) {
-	var page dto.Page
-	if err := ctx.ShouldBindQuery(&page); err != nil {
+	var req dto.ReqPageSearch
+	if err := ctx.ShouldBindQuery(&req); err != nil {
 		handler.HandlerError(ctx, response.RespCodeParamErr, err)
 		return
 	}
 
-	page, err := a.tmSvc.GetProductList(ctx.Request.Context(), page)
+	page, err := a.tmSvc.GetProductList(ctx.Request.Context(), req.Search, req.Page)
 	if err != nil {
 		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
 		return

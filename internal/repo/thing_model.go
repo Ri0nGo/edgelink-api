@@ -27,6 +27,10 @@ func (r *ThingModelRepo) CreateThingModel(ctx context.Context, tm *model.ThingMo
 		if err := tx.Create(tm).Error; err != nil {
 			return err
 		}
+		if len(tmps) == 0 {
+			return nil
+		}
+
 		for i := range tmps {
 			tmps[i].ModelId = tm.Id
 		}
@@ -82,7 +86,7 @@ func (r *ThingModelRepo) GetThingModelsByIds(ctx context.Context, ids []int) ([]
 func (r *ThingModelRepo) GetThingModelList(ctx context.Context, search string, page dto.Page) (dto.Page, error) {
 	return paginate.PaginateList[model.ThingModel](ctx, r.db, page, func(db *gorm.DB) *gorm.DB {
 		if search != "" {
-			db.Where("name LIKE ?", "%"+search+"%")
+			db = db.Where("name LIKE ? OR identifier LIKE ?", "%"+search+"%", "%"+search+"%")
 		}
 		return db
 	})

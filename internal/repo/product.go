@@ -16,7 +16,7 @@ type IProductRepo interface {
 	GetProductById(ctx context.Context, id int) (model.Product, error)
 	GetProductsByThingModelId(ctx context.Context, id int) ([]model.Product, error)
 	GetProductsByIds(ctx context.Context, ids []int) ([]model.Product, error)
-	GetProductList(ctx context.Context, page dto.Page) (dto.Page, error)
+	GetProductList(ctx context.Context, search string, page dto.Page) (dto.Page, error)
 }
 
 type ProductRepo struct {
@@ -26,7 +26,7 @@ type ProductRepo struct {
 func (r *ProductRepo) GetProductsByThingModelId(ctx context.Context, id int) ([]model.Product, error) {
 	var results []model.Product
 	err := r.db.WithContext(ctx).
-		Where("thing_model_id = ?", id).
+		Where("model_id = ?", id).
 		Find(&results).
 		Error
 	return results, err
@@ -67,8 +67,13 @@ func (r *ProductRepo) GetProductById(ctx context.Context, id int) (model.Product
 	return result, err
 }
 
-func (r *ProductRepo) GetProductList(ctx context.Context, page dto.Page) (dto.Page, error) {
-	return paginate.PaginateList[model.Product](ctx, r.db, page)
+func (r *ProductRepo) GetProductList(ctx context.Context, search string, page dto.Page) (dto.Page, error) {
+	return paginate.PaginateList[model.Product](ctx, r.db, page, func(db *gorm.DB) *gorm.DB {
+		if search != "" {
+			db = db.Where("name LIKE ? OR identifier LIKE ?", "%"+search+"%", "%"+search+"%")
+		}
+		return db
+	})
 }
 
 func NewProductRepo(db *gorm.DB) IProductRepo {

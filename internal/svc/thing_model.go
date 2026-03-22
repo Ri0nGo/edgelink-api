@@ -24,6 +24,7 @@ type IThingModelSvc interface {
 	UpdateThingModelProp(ctx context.Context, req *dto.ReqThingModelProp) error
 	DeleteThingModelProp(ctx context.Context, id int) error
 	GetThingModelPropList(ctx context.Context, modelId int, search string, page dto.Page) (dto.Page, error)
+	GetThingModelProps(ctx context.Context, modelId int) ([]model.ThingModelProperty, error)
 }
 
 type ThingModelSvc struct {
@@ -55,8 +56,7 @@ func (s *ThingModelSvc) CreateThingModel(ctx context.Context, req *dto.ReqThingM
 		})
 	}
 
-	err := s.tmRepo.CreateThingModel(ctx, tmDao, tmps)
-	return err
+	return s.tmRepo.CreateThingModel(ctx, tmDao, tmps)
 }
 
 func (s *ThingModelSvc) UpdateThingModel(ctx context.Context, req *dto.ReqThingModel) error {
@@ -248,6 +248,10 @@ func (s *ThingModelSvc) GetThingModelPropList(ctx context.Context, modelId int, 
 	}
 	page.Data = props
 	return page, nil
+}
+
+func (s *ThingModelSvc) GetThingModelProps(ctx context.Context, modelId int) ([]model.ThingModelProperty, error) {
+	return s.tmpRepo.GetThingModelPropsByModelId(ctx, modelId)
 }
 
 func NewThingModelSvc(tmRepo repo.IThingModelRepo, tmpRepo repo.IThingModelPropRepo,

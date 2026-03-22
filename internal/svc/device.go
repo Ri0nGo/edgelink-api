@@ -11,7 +11,10 @@ import (
 	"edgelink-api/internal/repo"
 	"errors"
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/redis/go-redis/v9"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -21,7 +24,7 @@ type IDeviceSvc interface {
 	UpdateDevice(ctx context.Context, req *dto.ReqDevice) error
 	DeleteDevice(ctx context.Context, id int) error
 	GetDeviceById(ctx context.Context, id int) (*dto.RespDevice, error)
-	GetDeviceList(ctx context.Context, page dto.Page) (dto.Page, error)
+	GetDeviceList(ctx context.Context, search string, page dto.Page) (dto.Page, error)
 
 	// device property
 	UpdateDeviceProp(ctx context.Context, req *dto.ReqDeviceProp) error
@@ -32,6 +35,7 @@ type DeviceSvc struct {
 	productRepo repo.IProductRepo
 	deviceRepo  repo.IDeviceRepo
 	tmpRepo     repo.IThingModelPropRepo
+	redisCmd    redis.Cmdable
 }
 
 func (s *DeviceSvc) CreateDevice(ctx context.Context, req *dto.ReqDevice) error {
@@ -49,7 +53,7 @@ func (s *DeviceSvc) CreateDevice(ctx context.Context, req *dto.ReqDevice) error 
 		Address:     datatypes.NewJSONType(s.generateAddress(productModel.Identifier, req.Key)),
 		Description: req.Description,
 	}
-	props, err := s.tmpRepo.GetThingModelPropsByModelId(ctx, productModel.ThingModelId)
+	props, err := s.tmpRepo.GetThingModelPropsByModelId(ctx, productModel.ModelId)
 	if err != nil {
 		return err
 	}
@@ -102,12 +106,12 @@ func (s *DeviceSvc) generateAddress(productKey, deviceKey string) model.DeviceAd
 				Address: fmt.Sprintf("/sys/%s/%s/uplink/data}", productKey, deviceKey),
 				Desc:    "上传设备数据至MQTT",
 			}, {
-				Address: fmt.Sprintf("/sys/%s/%s/uplink/status}", productKey, deviceKey),
+				Address: fmt.Sprintf("/sys/%s/%s/uplink/status", productKey, deviceKey),
 				Desc:    "上传设备状态至MQTT",
 			},
 		}, Downlink: []model.DeviceAddressDetail{
 			{
-				Address: fmt.Sprintf("/sys/%s/%s/downlink/event}", productKey, deviceKey),
+				Address: fmt.Sprintf("/sys/%s/%s/downlink/event", productKey, deviceKey),
 				Desc:    "下发事件至设备（暂未实现）",
 			},
 		},
@@ -158,10 +162,18 @@ func (s *DeviceSvc) GetDeviceById(ctx context.Context, id int) (*dto.RespDevice,
 		return nil, err
 	}
 	DeviceDao.ProductName = productModel.Name
+	devices := []model.Device{DeviceDao}
+	if err = s.fillDeviceStatus(ctx, devices); err != nil {
+		return nil, err
+	}
+	DeviceDao = devices[0]
 
 	// 查询该设备使用了哪些模型属性（设备下不允许编辑模型属性的标识符，数据类型）
 	props, err := s.deviceRepo.GetDevicePropByDeviceId(ctx, id)
 	if err != nil {
+		return nil, err
+	}
+	if err = s.fillDevicePropValues(ctx, DeviceDao.Id, props); err != nil {
 		return nil, err
 	}
 
@@ -173,8 +185,8 @@ func (s *DeviceSvc) GetDeviceById(ctx context.Context, id int) (*dto.RespDevice,
 	return result, nil
 }
 
-func (s *DeviceSvc) GetDeviceList(ctx context.Context, page dto.Page) (dto.Page, error) {
-	dataPage, err := s.deviceRepo.GetDeviceList(ctx, page)
+func (s *DeviceSvc) GetDeviceList(ctx context.Context, search string, page dto.Page) (dto.Page, error) {
+	dataPage, err := s.deviceRepo.GetDeviceList(ctx, search, page)
 	if err != nil {
 		return dto.Page{}, err
 	}
@@ -198,8 +210,132 @@ func (s *DeviceSvc) GetDeviceList(ctx context.Context, page dto.Page) (dto.Page,
 			Devices[i].ProductName = m.Name
 		}
 	}
+
+	if err = s.fillDeviceStatus(ctx, Devices); err != nil {
+		return dto.Page{}, err
+	}
 	dataPage.Data = Devices
 	return dataPage, nil
+}
+
+func (s *DeviceSvc) fillDeviceStatus(ctx context.Context, devices []model.Device) error {
+	if len(devices) == 0 {
+		return nil
+	}
+	if s.redisCmd == nil {
+		return nil
+	}
+
+	pipe := s.redisCmd.Pipeline()
+	cmders := make([]*redis.MapStringStringCmd, len(devices))
+	for i, device := range devices {
+		cmders[i] = pipe.HGetAll(ctx, fmt.Sprintf("device:%d:status", device.Id))
+	}
+
+	_, err := pipe.Exec(ctx)
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return err
+	}
+
+	for i, cmd := range cmders {
+		devices[i].Status = "unknown"
+		devices[i].StatusUpdatedTime = nil
+
+		statusData, cmdErr := cmd.Result()
+		if cmdErr != nil && !errors.Is(cmdErr, redis.Nil) {
+			return cmdErr
+		}
+		if len(statusData) == 0 {
+			continue
+		}
+
+		statusKey, ok := statusData["key"]
+		if !ok || statusKey == "" {
+			continue
+		}
+
+		if ts, ok := statusData["ts"]; ok {
+			parsedTs, parseErr := strconv.ParseInt(ts, 10, 64)
+			if parseErr != nil {
+				logger.Warn("parse device status ts failed", "device_id", devices[i].Id, "ts", ts, "err", parseErr)
+				continue
+			}
+
+			nowTs := time.Now().Unix()
+			if nowTs-parsedTs <= 60 {
+				devices[i].Status = "online"
+			} else {
+				devices[i].Status = "offline"
+			}
+			devices[i].StatusUpdatedTime = &parsedTs
+		}
+	}
+
+	return nil
+}
+
+func (s *DeviceSvc) fillDevicePropValues(ctx context.Context, deviceID int, props []model.DevicePropertyDetail) error {
+	if len(props) == 0 || s.redisCmd == nil {
+		return nil
+	}
+
+	values, err := s.redisCmd.HGetAll(ctx, fmt.Sprintf("device:%d:data", deviceID)).Result()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return err
+	}
+	if len(values) == 0 {
+		return nil
+	}
+
+	for i := range props {
+		rawValue, ok := values[props[i].PropertyKey]
+		if !ok {
+			continue
+		}
+		parsed, parseErr := parseDevicePropValue(rawValue, props[i].DataType)
+		if parseErr != nil {
+			logger.Warn("parse device prop value failed",
+				"device_id", deviceID,
+				"property_key", props[i].PropertyKey,
+				"raw_value", rawValue,
+				"err", parseErr)
+			continue
+		}
+		props[i].Value = parsed
+	}
+
+	return nil
+}
+
+func parseDevicePropValue(rawValue string, dataType model.ThingModelDataType) (any, error) {
+	switch dataType {
+	case model.ThingModelPropTypeBool:
+		if rawValue == "1" {
+			return true, nil
+		}
+		if rawValue == "0" {
+			return false, nil
+		}
+		parsed, err := strconv.ParseBool(rawValue)
+		if err != nil {
+			return nil, err
+		}
+		return parsed, nil
+	case model.ThingModelPropTypeInt:
+		parsed, err := strconv.ParseInt(rawValue, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		return parsed, nil
+	case model.ThingModelPropTypeFloat:
+		parsed, err := strconv.ParseFloat(rawValue, 64)
+		if err != nil {
+			return nil, err
+		}
+		return parsed, nil
+	default:
+		return rawValue, nil
+	}
 }
 
 func (s *DeviceSvc) getProductsMap(ctx context.Context, productIds []int) (map[int]model.Product, error) {
@@ -266,10 +402,16 @@ func (s *DeviceSvc) DeleteDeviceProps(ctx context.Context, req *dto.ReqIds) erro
 	return s.deviceRepo.DeleteDeviceProps(ctx, req.Ids)
 }
 
-func NewDeviceSvc(deviceRepo repo.IDeviceRepo, productRepo repo.IProductRepo, tmpRepo repo.IThingModelPropRepo) IDeviceSvc {
+func NewDeviceSvc(
+	deviceRepo repo.IDeviceRepo,
+	productRepo repo.IProductRepo,
+	tmpRepo repo.IThingModelPropRepo,
+	redisCmd redis.Cmdable,
+) IDeviceSvc {
 	return &DeviceSvc{
 		deviceRepo:  deviceRepo,
 		productRepo: productRepo,
 		tmpRepo:     tmpRepo,
+		redisCmd:    redisCmd,
 	}
 }

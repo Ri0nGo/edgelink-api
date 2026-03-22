@@ -104,12 +104,20 @@ func (a *ThingModelApi) GetThingModelDetail(ctx *gin.Context) {
 		return
 	}
 
-	tmDao, err := a.tmSvc.GetThingModelById(ctx.Request.Context(), id)
+	c := ctx.Request.Context()
+	tmDao, err := a.tmSvc.GetThingModelById(c, id)
 	if err != nil {
 		logger.Error("get thing model err", "err", err)
 		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
 		return
 	}
+	props, err := a.tmSvc.GetThingModelProps(c, id)
+	if err != nil {
+		logger.Error("get thing model prop list err", "err", err)
+		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
+		return
+	}
+	tmDao.Props = props
 	handler.Success(ctx, tmDao)
 }
 

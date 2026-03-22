@@ -17,15 +17,17 @@ type DeviceAddress struct {
 }
 
 type Device struct {
-	Id          int                               `json:"id" gorm:"primaryKey;autoIncrement"`
-	Key         string                            `json:"device_key"`
-	Name        string                            `json:"device_name"`
-	ProductId   int                               `json:"product_id"`
-	ProductName string                            `json:"product_name" gorm:"-"`
-	Address     datatypes.JSONType[DeviceAddress] `json:"address"`
-	Description string                            `json:"description"`
-	CreatedTime time.Time                         `json:"created_time" gorm:"autoCreateTime"`
-	UpdatedTime time.Time                         `json:"updated_time" gorm:"autoUpdateTime"`
+	Id                int                               `json:"id" gorm:"primaryKey;autoIncrement"`
+	Key               string                            `json:"device_key"`
+	Name              string                            `json:"device_name"`
+	ProductId         int                               `json:"product_id"`
+	ProductName       string                            `json:"product_name" gorm:"-"`
+	Status            string                            `json:"status" gorm:"-"`
+	StatusUpdatedTime *int64                            `json:"status_updated_time" gorm:"-"`
+	Address           datatypes.JSONType[DeviceAddress] `json:"address"`
+	Description       string                            `json:"description"`
+	CreatedTime       time.Time                         `json:"created_time" gorm:"autoCreateTime"`
+	UpdatedTime       time.Time                         `json:"updated_time" gorm:"autoUpdateTime"`
 }
 
 func (d Device) TableName() string {
@@ -66,6 +68,7 @@ type DevicePropertyDetail struct {
 	StoreMode    StoreMode            `json:"store_mode"`  // 存储模式
 	PropertyId   int                  `json:"property_id"` // 物模型属性 id
 	PropertyKey  string               `json:"key"`         // 物模型属性 key
+	Value        any                  `json:"value" gorm:"-"`
 	DeviceId     int                  `json:"device_id"`   // 设备 id
 	DeviceKey    string               `json:"device_key"`  // 设备 key
 	PropertyName string               `json:"name"`        // 物模型属性名称

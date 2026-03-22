@@ -18,13 +18,14 @@ const (
 )
 
 type ThingModel struct {
-	Id          int       `json:"id" gorm:"primaryKey;autoIncrement;comment:支付自增ID"`
-	Identifier  string    `json:"identifier" gorm:"type:varchar(64);not null;uniqueIndex:uk_model_identifier;comment:模型标识符"`
-	Name        string    `json:"name" gorm:"type:varchar(128);not null;comment:模型名称"`
-	Description string    `json:"description" gorm:"type:varchar(255);not null;comment:描述"`
-	Icon        string    `json:"icon"`
-	CreatedTime time.Time `json:"created_time" gorm:"autoCreateTime"`
-	UpdatedTime time.Time `json:"updated_time" gorm:"autoUpdateTime"`
+	Id          int                  `json:"id" gorm:"primaryKey;autoIncrement;comment:支付自增ID"`
+	Identifier  string               `json:"identifier" gorm:"type:varchar(64);not null;uniqueIndex:uk_model_identifier;comment:模型标识符"`
+	Name        string               `json:"name" gorm:"type:varchar(128);not null;comment:模型名称"`
+	Description string               `json:"description" gorm:"type:varchar(255);not null;comment:描述"`
+	Icon        string               `json:"icon"`
+	CreatedTime time.Time            `json:"created_time" gorm:"autoCreateTime"`
+	UpdatedTime time.Time            `json:"updated_time" gorm:"autoUpdateTime"`
+	Props       []ThingModelProperty `json:"props" gorm:"-"`
 }
 
 func (m ThingModel) TableName() string {

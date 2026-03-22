@@ -15,7 +15,7 @@ type IDeviceRepo interface {
 	DeleteDevice(ctx context.Context, id int) error
 	GetDeviceById(ctx context.Context, id int) (model.Device, error)
 	GetDevicesByProductId(ctx context.Context, productId int) ([]model.Device, error)
-	GetDeviceList(ctx context.Context, page dto.Page) (dto.Page, error)
+	GetDeviceList(ctx context.Context, search string, page dto.Page) (dto.Page, error)
 	GetDevicesByThingModelID(ctx context.Context, modelId int) ([]model.Device, error)
 
 	// device property
@@ -86,7 +86,7 @@ func (r *DeviceRepo) GetDevicesByThingModelID(ctx context.Context, modelId int) 
 SELECT t1.* from device t1
 INNER JOIN product t2
 INNER JOIN thing_model t3
-ON t1.product_id = t2.id AND t2.thing_model_id = t3.id
+ON t1.product_id = t2.id AND t2.model_id = t3.id
 WHERE t3.id = ?;
 `, modelId).
 		Find(&results).
@@ -155,8 +155,13 @@ func (r *DeviceRepo) GetDeviceById(ctx context.Context, id int) (model.Device, e
 	return result, err
 }
 
-func (r *DeviceRepo) GetDeviceList(ctx context.Context, page dto.Page) (dto.Page, error) {
-	return paginate.PaginateList[model.Device](ctx, r.db, page)
+func (r *DeviceRepo) GetDeviceList(ctx context.Context, search string, page dto.Page) (dto.Page, error) {
+	return paginate.PaginateList[model.Device](ctx, r.db, page, func(db *gorm.DB) *gorm.DB {
+		if search != "" {
+			db = db.Where("name LIKE ? OR `key` LIKE ?", "%"+search+"%", "%"+search+"%")
+		}
+		return db
+	})
 }
 
 func (r *DeviceRepo) UpdateDevicePropRef(ctx context.Context, prop model.DevicePropertyRef) error {

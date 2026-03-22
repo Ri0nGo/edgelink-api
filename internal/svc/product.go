@@ -15,7 +15,7 @@ type IProductSvc interface {
 	UpdateProduct(ctx context.Context, req *dto.ReqProduct) error
 	DeleteProduct(ctx context.Context, id int) error
 	GetProductById(ctx context.Context, id int) (model.Product, error)
-	GetProductList(ctx context.Context, page dto.Page) (dto.Page, error)
+	GetProductList(ctx context.Context, search string, page dto.Page) (dto.Page, error)
 }
 
 type ProductSvc struct {
@@ -30,10 +30,10 @@ func (s *ProductSvc) CreateProduct(ctx context.Context, req *dto.ReqProduct) err
 		return err
 	}
 	productDao := &model.Product{
-		Identifier:   req.Identifier,
-		Name:         req.Name,
-		ThingModelId: req.ModelId,
-		Protocol:     req.Protocol,
+		Identifier: req.Identifier,
+		Name:       req.Name,
+		ModelId:    req.ModelId,
+		Protocol:   req.Protocol,
 	}
 
 	return s.productRepo.CreateProduct(ctx, productDao)
@@ -45,11 +45,11 @@ func (s *ProductSvc) UpdateProduct(ctx context.Context, req *dto.ReqProduct) err
 		return err
 	}
 	productDao := &model.Product{
-		Id:           req.Id,
-		Identifier:   req.Identifier,
-		Name:         req.Name,
-		ThingModelId: req.ModelId,
-		Protocol:     req.Protocol,
+		Id:         req.Id,
+		Identifier: req.Identifier,
+		Name:       req.Name,
+		ModelId:    req.ModelId,
+		Protocol:   req.Protocol,
 	}
 	return s.productRepo.UpdateProduct(ctx, productDao)
 }
@@ -73,7 +73,7 @@ func (s *ProductSvc) GetProductById(ctx context.Context, id int) (model.Product,
 	if err != nil {
 		return model.Product{}, err
 	}
-	thingModel, err := s.tmRepo.GetThingModelById(ctx, productDao.ThingModelId)
+	thingModel, err := s.tmRepo.GetThingModelById(ctx, productDao.ModelId)
 	if err != nil {
 		return model.Product{}, err
 	}
@@ -81,8 +81,8 @@ func (s *ProductSvc) GetProductById(ctx context.Context, id int) (model.Product,
 	return productDao, nil
 }
 
-func (s *ProductSvc) GetProductList(ctx context.Context, page dto.Page) (dto.Page, error) {
-	dataPage, err := s.productRepo.GetProductList(ctx, page)
+func (s *ProductSvc) GetProductList(ctx context.Context, search string, page dto.Page) (dto.Page, error) {
+	dataPage, err := s.productRepo.GetProductList(ctx, search, page)
 	if err != nil {
 		return dto.Page{}, err
 	}
@@ -94,7 +94,7 @@ func (s *ProductSvc) GetProductList(ctx context.Context, page dto.Page) (dto.Pag
 	// 查询产品所使用的模型
 	var modelIds []int
 	for _, product := range products {
-		modelIds = append(modelIds, product.ThingModelId)
+		modelIds = append(modelIds, product.ModelId)
 	}
 
 	modelsMap, err := s.getThingsModelsMap(ctx, modelIds)
@@ -102,7 +102,7 @@ func (s *ProductSvc) GetProductList(ctx context.Context, page dto.Page) (dto.Pag
 		return dto.Page{}, err
 	}
 	for i, product := range products {
-		if m, ok := modelsMap[product.ThingModelId]; ok {
+		if m, ok := modelsMap[product.ModelId]; ok {
 			products[i].ModelName = m.Name
 		}
 	}

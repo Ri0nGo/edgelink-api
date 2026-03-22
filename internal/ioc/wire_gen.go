@@ -24,6 +24,7 @@ import (
 // Injectors from wire.go:
 
 func InitWebServer() *Container {
+	cmdable := cache.InitRedisCache()
 	gormDB := db.InitDB()
 	iThingModelRepo := repo.NewThingModelRepo(gormDB)
 	iThingModelPropRepo := repo.NewThingModelPropRepo(gormDB)
@@ -33,14 +34,13 @@ func InitWebServer() *Container {
 	thingModelApi := api.NewThingModelApi(iThingModelSvc)
 	iProductSvc := svc.NewProductSvc(iProductRepo, iThingModelRepo, iDeviceRepo)
 	productApi := api.NewProductApi(iProductSvc)
-	iDeviceSvc := svc.NewDeviceSvc(iDeviceRepo, iProductRepo, iThingModelPropRepo)
+	iDeviceSvc := svc.NewDeviceSvc(iDeviceRepo, iProductRepo, iThingModelPropRepo, cmdable)
 	deviceApi := api.NewDeviceApi(iDeviceSvc)
 	iHistoryDataRepo := repo.NewHistoryDataRepo(gormDB)
 	iMetricSvc := svc.NewMetricSvc(iHistoryDataRepo)
 	metricApi := api.NewMetricApi(iMetricSvc)
 	v := router.LoadRegistryRouters(thingModelApi, productApi, deviceApi, metricApi)
 	engine := router.InitRouter(v)
-	cmdable := cache.InitRedisCache()
 	container := &Container{
 		Engine:   engine,
 		RedisCmd: cmdable,

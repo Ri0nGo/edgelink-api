@@ -35,7 +35,7 @@ CREATE TABLE `product` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `identifier` varchar(64) NOT NULL,
   `name` varchar(128) NOT NULL,
-  `thing_model_id` bigint NOT NULL COMMENT '绑定物模型id',
+  `model_id` bigint NOT NULL COMMENT '绑定物模型id',
   `created_time` datetime DEFAULT NULL,
   `updated_time` datetime DEFAULT NULL,
   `protocol` varchar(32) NOT NULL,

@@ -25,7 +25,7 @@ type ThingModelPropRepo struct {
 func (r *ThingModelPropRepo) DeleteThingModelProp(ctx context.Context, id int) error {
 	return r.db.
 		WithContext(ctx).
-		Where("property_id = ?", id).
+		Where("id = ?", id).
 		Delete(&model.ThingModelProperty{}).
 		Error
 }
@@ -59,7 +59,7 @@ func (r *ThingModelPropRepo) DeleteThingModelPropByModelId(ctx context.Context, 
 	return r.db.
 		WithContext(ctx).
 		Where("model_id = ?", modelId).
-		Delete(&model.ThingModel{}).
+		Delete(&model.ThingModelProperty{}).
 		Error
 }
 
