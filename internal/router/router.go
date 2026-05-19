@@ -2,6 +2,7 @@ package router
 
 import (
 	"edgelink-api/internal/api"
+	"edgelink-api/internal/pkg/ginx/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -12,7 +13,7 @@ type RegistryRouter interface {
 
 func InitRouter(routers []RegistryRouter) *gin.Engine {
 	engine := gin.Default()
-	//engine.Use(mdls...)
+	engine.Use(middleware.Cors())
 
 	group := engine.Group("/api/edgelink")
 	for _, router := range routers {
