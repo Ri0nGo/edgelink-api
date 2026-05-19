@@ -65,12 +65,14 @@ func InitWebServer() *Container {
 		svc.NewProductSvc,
 		svc.NewDeviceSvc,
 		svc.NewMetricSvc,
+		svc.NewOAuthSvc,
 
 		// api layer
 		api.NewThingModelApi,
 		api.NewProductApi,
 		api.NewDeviceApi,
 		api.NewMetricApi,
+		api.NewOAuthApi,
 
 		router.LoadRegistryRouters,
 		router.InitRouter,

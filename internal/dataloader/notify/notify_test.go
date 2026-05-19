@@ -14,7 +14,7 @@ import (
 
 func TestNewDeviceEventNotify(t *testing.T) {
 	logger.InitLogger(logger.LogConfig{
-		Level:         slog.LevelInfo,
+		Level:         slog.LevelInfo.String(),
 		LogFmt:        logger.LogTextFormat,
 		FilePath:      "./run.log",
 		ShowLogSource: true,

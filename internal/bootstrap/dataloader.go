@@ -88,7 +88,7 @@ func initMQTTReceiver(ctx context.Context, host, username, password string, port
 		protocol = "ssl"
 	}
 	brokerUrl := fmt.Sprintf("%s://%s:%d", protocol, host, port)
-	cfg := receiver.NewMQTTConfig(brokerUrl, username, password)
+	cfg := receiver.NewMQTTConfig(brokerUrl, username, password, receiver.WithSSLOption(ssl))
 	mqttReceiver := receiver.NewMQTTReceiver(ctx, cfg, dataChan, statusChan)
 	err := mqttReceiver.Start()
 	if err != nil {

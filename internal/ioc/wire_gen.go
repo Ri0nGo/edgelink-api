@@ -39,7 +39,9 @@ func InitWebServer() *Container {
 	iHistoryDataRepo := repo.NewHistoryDataRepo(gormDB)
 	iMetricSvc := svc.NewMetricSvc(iHistoryDataRepo)
 	metricApi := api.NewMetricApi(iMetricSvc)
-	v := router.LoadRegistryRouters(thingModelApi, productApi, deviceApi, metricApi)
+	iOAuthSvc := svc.NewOAuthSvc(cmdable)
+	oAuthApi := api.NewOAuthApi(iOAuthSvc)
+	v := router.LoadRegistryRouters(thingModelApi, productApi, deviceApi, metricApi, oAuthApi)
 	engine := router.InitRouter(v)
 	container := &Container{
 		Engine:   engine,

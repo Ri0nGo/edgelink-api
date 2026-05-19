@@ -7,7 +7,7 @@ import (
 
 func TestLogger(t *testing.T) {
 	err := InitLogger(LogConfig{
-		slog.LevelInfo,
+		slog.LevelInfo.String(),
 		LogTextFormat,
 		"./run.log",
 		true,

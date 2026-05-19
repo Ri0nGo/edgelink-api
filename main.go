@@ -42,7 +42,7 @@ func main() {
 
 	bizCtx, cancel := context.WithCancel(context.Background())
 
-	container, srv := bootstrap.InitApp()
+	container, srv := bootstrap.InitApp(":8083")
 	bootstrap.Bootstrap(bizCtx, container, srv)
 
 	// wait quit signal

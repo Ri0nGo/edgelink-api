@@ -29,9 +29,9 @@ func TestNewMQTTReceiver(t *testing.T) {
 	})
 
 	cfg := NewMQTTConfig(
-		"tcp://127.0.0.1:1883",
+		"ssl://mqtt.rion.top:13888",
 		"admin",
-		"123456",
+		"RionGoMqtt@0812.com",
 		WithSSLOption(true),
 	)
 	ctx := context.Background()
@@ -42,7 +42,9 @@ func TestNewMQTTReceiver(t *testing.T) {
 	go statusChanConsumer(statusChan)
 
 	mqttReceiver := NewMQTTReceiver(ctx, cfg, dataChan, statusChan)
-	mqttReceiver.Start()
+	if err := mqttReceiver.Start(); err != nil {
+		t.Fatal(err)
+	}
 
 	time.Sleep(time.Minute * 2)
 	mqttReceiver.Close()
