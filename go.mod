@@ -3,7 +3,7 @@ module edgelink-api
 go 1.25.4
 
 require (
-	github.com/Ri0nGo/gokit v0.0.7
+	github.com/Ri0nGo/gokit v0.0.8
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/gin-gonic/gin v1.11.0
 	github.com/google/wire v0.7.0
