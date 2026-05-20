@@ -1,3 +1,7 @@
+app:
+  addr: ":8080"
+  name: edgelink-api
+  
 databases:
   edgelink:
     host: 127.0.0.1

@@ -28,6 +28,7 @@ func RunWebServer(srv *http.Server) {
 			panic(err)
 		}
 	}()
+	logger.Info("Web Server Listening on: " + srv.Addr)
 }
 
 func Stop(ctx context.Context, srv *http.Server, ctr *ioc.Container, timeout time.Duration) {
