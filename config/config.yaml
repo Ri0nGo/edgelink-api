@@ -22,12 +22,24 @@ mqtt:
   password: 123456
 
 oauth:
-  enabled: true
-  # oauth2 服务端地址
-  auth_base_url: "http://localhost:8080"
-  client_id: "9fc70cfccebdedb75ff8fc2a181810f0"
-  client_secret: "sk_8f0b5d02fdc4aef98b134ae47470f1c0"
-  redirect_uri: "http://localhost:5000/oauth/callback"
-  scopes:
-    - basic
-  timeout_seconds: 3
+  clients:
+    edgelink-ui:
+      enabled: true
+      # oauth2 服务端地址
+      auth_base_url: "http://localhost:8080"
+      client_id: "9fc70cfccebdedb75ff8fc2a181810f0"
+      client_secret: "sk_8f0b5d02fdc4aef98b134ae47470f1c0"
+      redirect_uri: "http://localhost:5000/oauth/callback"
+      scopes:
+        - basic
+      timeout_seconds: 3
+    edgelink-mobile:
+      enabled: true
+      # oauth2 服务端地址
+      auth_base_url: "http://localhost:8080"
+      client_id: "9fc70cfccebdedb75ff8fc2a181810f0"
+      client_secret: "sk_8f0b5d02fdc4aef98b134ae47470f1c0"
+      redirect_uri: "http://localhost:5173/oauth/callback"
+      scopes:
+        - basic
+      timeout_seconds: 3

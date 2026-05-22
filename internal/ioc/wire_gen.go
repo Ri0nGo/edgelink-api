@@ -42,7 +42,7 @@ func InitWebServer() *Container {
 	iOAuthSvc := svc.NewOAuthSvc(cmdable)
 	oAuthApi := api.NewOAuthApi(iOAuthSvc)
 	v := router.LoadRegistryRouters(thingModelApi, productApi, deviceApi, metricApi, oAuthApi)
-	engine := router.InitRouter(v)
+	engine := router.InitRouter(v, cmdable)
 	container := &Container{
 		Engine:   engine,
 		RedisCmd: cmdable,

@@ -2,6 +2,7 @@ package svc
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -16,69 +17,94 @@ import (
 const oauthOpenIDKeyPrefix = "edgelink:oauth:openid:"
 
 type IOAuthSvc interface {
-	GetOAuthInfo(state string) (*dto.OAuthInfo, error)
-	GetUserToken(ctx context.Context, code string) (*oauth2Client.TokenResponse, error)
-	RefreshUserToken(ctx context.Context, refreshToken string) (*oauth2Client.TokenResponse, error)
-	GetUserInfo(ctx context.Context, accessToken string) (*oauth2Client.UserInfo, error)
+	GetOAuthInfo(oauth2Key, state string) (*dto.OAuthInfo, error)
+	GetUserToken(ctx context.Context, oauth2Key, code string) (*oauth2Client.TokenResponse, error)
+	RefreshUserToken(ctx context.Context, oauth2Key, refreshToken string) (*oauth2Client.TokenResponse, error)
+	GetUserInfo(ctx context.Context, oauth2Key, accessToken string) (*oauth2Client.UserInfo, error)
 }
 
-type OAuthSvc struct {
+type oauthClientConfig struct {
+	key         string
 	enabled     bool
 	clientID    string
 	redirectURI string
 	scopes      []string
-	redis       redis.Cmdable
 	client      *oauth2Client.Client
 }
 
-func NewOAuthSvc(redis redis.Cmdable) IOAuthSvc {
-	enabled := viper.GetBool("oauth.enabled")
-	clientID := viper.GetString("oauth.client_id")
-	redirectURI := viper.GetString("oauth.redirect_uri")
-	scopes := getOAuthScopes()
-
-	var client *oauth2Client.Client
-	if enabled {
-		var err error
-		client, err = oauth2Client.New(oauth2Client.Config{
-			BaseURL:      viper.GetString("oauth.auth_base_url"),
-			ClientID:     clientID,
-			ClientSecret: viper.GetString("oauth.client_secret"),
-			RedirectURI:  redirectURI,
-			Scopes:       scopes,
-			Timeout:      time.Duration(viper.GetInt("oauth.timeout_seconds")) * time.Second,
-		})
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	return &OAuthSvc{
-		enabled:     enabled,
-		clientID:    clientID,
-		redirectURI: redirectURI,
-		scopes:      scopes,
-		redis:       redis,
-		client:      client,
-	}
+type OAuthSvc struct {
+	redis   redis.Cmdable
+	clients map[string]*oauthClientConfig
 }
 
-func (s *OAuthSvc) GetOAuthInfo(state string) (*dto.OAuthInfo, error) {
-	info := &dto.OAuthInfo{
-		Enabled:      s.enabled,
-		ClientID:     s.clientID,
-		RedirectURI:  s.redirectURI,
-		ResponseType: "code",
-		Scope:        strings.Join(s.scopes, " "),
+func NewOAuthSvc(redis redis.Cmdable) IOAuthSvc {
+	clients := make(map[string]*oauthClientConfig)
+	clientConfigs := viper.GetStringMap("oauth.clients")
+	for oauth2Key := range clientConfigs {
+		clients[oauth2Key] = mustBuildOAuthClient(oauth2Key, viper.Sub("oauth.clients."+oauth2Key))
 	}
-	if !s.enabled {
+
+	// Backward compatibility for local configs that have not been migrated yet.
+	if len(clients) == 0 && strings.TrimSpace(viper.GetString("oauth.client_id")) != "" {
+		clients["default"] = mustBuildOAuthClient("default", viper.Sub("oauth"))
+	}
+
+	return &OAuthSvc{redis: redis, clients: clients}
+}
+
+func mustBuildOAuthClient(oauth2Key string, cfg *viper.Viper) *oauthClientConfig {
+	if cfg == nil {
+		panic(fmt.Sprintf("OAuth2配置不存在: %s", oauth2Key))
+	}
+
+	clientCfg := &oauthClientConfig{
+		key:         oauth2Key,
+		enabled:     cfg.GetBool("enabled"),
+		clientID:    cfg.GetString("client_id"),
+		redirectURI: cfg.GetString("redirect_uri"),
+		scopes:      getOAuthScopes(cfg),
+	}
+	if !clientCfg.enabled {
+		return clientCfg
+	}
+
+	client, err := oauth2Client.New(oauth2Client.Config{
+		BaseURL:      cfg.GetString("auth_base_url"),
+		ClientID:     clientCfg.clientID,
+		ClientSecret: cfg.GetString("client_secret"),
+		RedirectURI:  clientCfg.redirectURI,
+		Scopes:       clientCfg.scopes,
+		Timeout:      time.Duration(cfg.GetInt("timeout_seconds")) * time.Second,
+	})
+	if err != nil {
+		panic(err)
+	}
+	clientCfg.client = client
+	return clientCfg
+}
+
+func (s *OAuthSvc) GetOAuthInfo(oauth2Key, state string) (*dto.OAuthInfo, error) {
+	clientCfg, err := s.getClient(oauth2Key)
+	if err != nil {
+		return nil, err
+	}
+
+	info := &dto.OAuthInfo{
+		Enabled:      clientCfg.enabled,
+		OAuth2Key:    clientCfg.key,
+		ClientID:     clientCfg.clientID,
+		RedirectURI:  clientCfg.redirectURI,
+		ResponseType: "code",
+		Scope:        strings.Join(clientCfg.scopes, " "),
+	}
+	if !clientCfg.enabled {
 		return info, nil
 	}
-	if s.client == nil {
+	if clientCfg.client == nil {
 		return nil, bizErr.NewBizError("OAuth2客户端未初始化")
 	}
 
-	authURL, err := s.client.AuthCodeURL(state)
+	authURL, err := clientCfg.client.AuthCodeURL(state)
 	if err != nil {
 		return nil, err
 	}
@@ -86,11 +112,12 @@ func (s *OAuthSvc) GetOAuthInfo(state string) (*dto.OAuthInfo, error) {
 	return info, nil
 }
 
-func (s *OAuthSvc) GetUserToken(ctx context.Context, code string) (*oauth2Client.TokenResponse, error) {
-	if err := s.ensureEnabled(); err != nil {
+func (s *OAuthSvc) GetUserToken(ctx context.Context, oauth2Key, code string) (*oauth2Client.TokenResponse, error) {
+	clientCfg, err := s.ensureEnabled(oauth2Key)
+	if err != nil {
 		return nil, err
 	}
-	token, err := s.client.GetUserToken(ctx, code)
+	token, err := clientCfg.client.GetUserToken(ctx, code)
 	if err != nil {
 		return nil, bizErr.NewBizError(err.Error())
 	}
@@ -100,11 +127,12 @@ func (s *OAuthSvc) GetUserToken(ctx context.Context, code string) (*oauth2Client
 	return token, nil
 }
 
-func (s *OAuthSvc) RefreshUserToken(ctx context.Context, refreshToken string) (*oauth2Client.TokenResponse, error) {
-	if err := s.ensureEnabled(); err != nil {
+func (s *OAuthSvc) RefreshUserToken(ctx context.Context, oauth2Key, refreshToken string) (*oauth2Client.TokenResponse, error) {
+	clientCfg, err := s.ensureEnabled(oauth2Key)
+	if err != nil {
 		return nil, err
 	}
-	token, err := s.client.RefreshUserToken(ctx, refreshToken)
+	token, err := clientCfg.client.RefreshUserToken(ctx, refreshToken)
 	if err != nil {
 		return nil, bizErr.NewBizError(err.Error())
 	}
@@ -114,19 +142,46 @@ func (s *OAuthSvc) RefreshUserToken(ctx context.Context, refreshToken string) (*
 	return token, nil
 }
 
-func (s *OAuthSvc) GetUserInfo(ctx context.Context, accessToken string) (*oauth2Client.UserInfo, error) {
-	if err := s.ensureEnabled(); err != nil {
+func (s *OAuthSvc) GetUserInfo(ctx context.Context, oauth2Key, accessToken string) (*oauth2Client.UserInfo, error) {
+	clientCfg, err := s.ensureEnabled(oauth2Key)
+	if err != nil {
 		return nil, err
 	}
 	openID, err := s.getOpenID(ctx, accessToken)
 	if err != nil {
 		return nil, err
 	}
-	user, err := s.client.GetUserInfo(ctx, accessToken, openID)
+	user, err := clientCfg.client.GetUserInfo(ctx, accessToken, openID)
 	if err != nil {
 		return nil, bizErr.NewBizError(err.Error())
 	}
 	return user, nil
+}
+
+func (s *OAuthSvc) getClient(oauth2Key string) (*oauthClientConfig, error) {
+	oauth2Key = strings.TrimSpace(oauth2Key)
+	if oauth2Key == "" {
+		return nil, bizErr.NewBizError("oauth2_key不能为空")
+	}
+	clientCfg, ok := s.clients[oauth2Key]
+	if !ok {
+		return nil, bizErr.NewBizError(fmt.Sprintf("OAuth2配置不存在: %s", oauth2Key))
+	}
+	return clientCfg, nil
+}
+
+func (s *OAuthSvc) ensureEnabled(oauth2Key string) (*oauthClientConfig, error) {
+	clientCfg, err := s.getClient(oauth2Key)
+	if err != nil {
+		return nil, err
+	}
+	if !clientCfg.enabled {
+		return nil, bizErr.NewBizError("OAuth2未启用")
+	}
+	if clientCfg.client == nil {
+		return nil, bizErr.NewBizError("OAuth2客户端未初始化")
+	}
+	return clientCfg, nil
 }
 
 func (s *OAuthSvc) saveOpenID(ctx context.Context, token *oauth2Client.TokenResponse) error {
@@ -161,20 +216,10 @@ func (s *OAuthSvc) getOpenID(ctx context.Context, accessToken string) (string, e
 	return openID, nil
 }
 
-func (s *OAuthSvc) ensureEnabled() error {
-	if !s.enabled {
-		return bizErr.NewBizError("OAuth2未启用")
-	}
-	if s.client == nil {
-		return bizErr.NewBizError("OAuth2客户端未初始化")
-	}
-	return nil
-}
-
-func getOAuthScopes() []string {
-	scopes := viper.GetStringSlice("oauth.scopes")
+func getOAuthScopes(cfg *viper.Viper) []string {
+	scopes := cfg.GetStringSlice("scopes")
 	if len(scopes) > 0 {
 		return scopes
 	}
-	return strings.Fields(viper.GetString("oauth.scope"))
+	return strings.Fields(cfg.GetString("scope"))
 }

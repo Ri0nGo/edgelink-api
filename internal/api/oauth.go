@@ -27,7 +27,7 @@ func (a *OAuthApi) RegistryRouter(g *gin.RouterGroup) {
 }
 
 func (a *OAuthApi) GetOAuthInfo(ctx *gin.Context) {
-	info, err := a.oauthSvc.GetOAuthInfo(ctx.Query("state"))
+	info, err := a.oauthSvc.GetOAuthInfo(ctx.Query("oauth2_key"), ctx.Query("state"))
 	if err != nil {
 		logger.Error("get oauth info err", "err", err)
 		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
@@ -44,7 +44,7 @@ func (a *OAuthApi) GetUserToken(ctx *gin.Context) {
 		return
 	}
 
-	token, err := a.oauthSvc.GetUserToken(ctx.Request.Context(), req.Code)
+	token, err := a.oauthSvc.GetUserToken(ctx.Request.Context(), req.OAuth2Key, req.Code)
 	if err != nil {
 		logger.Error("get oauth token err", "err", err)
 		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
@@ -61,7 +61,7 @@ func (a *OAuthApi) RefreshUserToken(ctx *gin.Context) {
 		return
 	}
 
-	token, err := a.oauthSvc.RefreshUserToken(ctx.Request.Context(), req.RefreshToken)
+	token, err := a.oauthSvc.RefreshUserToken(ctx.Request.Context(), req.OAuth2Key, req.RefreshToken)
 	if err != nil {
 		logger.Error("refresh oauth token err", "err", err)
 		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
@@ -72,7 +72,7 @@ func (a *OAuthApi) RefreshUserToken(ctx *gin.Context) {
 
 func (a *OAuthApi) GetUserInfo(ctx *gin.Context) {
 	accessToken := ctx.Query("access_token")
-	user, err := a.oauthSvc.GetUserInfo(ctx.Request.Context(), accessToken)
+	user, err := a.oauthSvc.GetUserInfo(ctx.Request.Context(), ctx.Query("oauth2_key"), accessToken)
 	if err != nil {
 		logger.Error("get oauth user info err", "err", err)
 		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
