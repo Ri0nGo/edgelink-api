@@ -20,6 +20,7 @@ mqtt:
   port: 1883
   username: admin
   password: 123456
+  ssl: false  # mqtts
 
 oauth:
   clients:

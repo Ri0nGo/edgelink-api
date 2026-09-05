@@ -26,7 +26,7 @@ type ProductRepo struct {
 func (r *ProductRepo) GetProductsByThingModelId(ctx context.Context, id int) ([]model.Product, error) {
 	var results []model.Product
 	err := r.db.WithContext(ctx).
-		Where("model_id = ?", id).
+		Where("thing_model_id = ?", id).
 		Find(&results).
 		Error
 	return results, err
