@@ -18,7 +18,7 @@ func NewRedisClient(addr, auth string, db int) redis.Cmdable {
 	if err := ping.Err(); err != nil {
 		panic(err)
 	}
-	logger.Info("redis connect success", "addr", addr)
+	logger.Info("redis connect success", "addr", addr, "redis_db", db)
 	return client
 }
 

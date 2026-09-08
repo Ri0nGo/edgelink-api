@@ -23,12 +23,14 @@ const (
 )
 
 type Event struct {
-	NotifyType NotifyType    `json:"notify_type"`
-	Operation  OperationType `json:"operation"`
-	DeviceKey  string        `json:"device_key"`
-	DeviceId   int           `json:"device_id"`
-	Payload    any           `json:"payload"` // 内容
-	Ts         int64         `json:"ts"`
+	PublisherID string        `json:"publisher_id,omitempty"`
+	PublisherDB *int          `json:"publisher_db,omitempty"`
+	NotifyType  NotifyType    `json:"notify_type"`
+	Operation   OperationType `json:"operation"`
+	DeviceKey   string        `json:"device_key"`
+	DeviceId    int           `json:"device_id"`
+	Payload     any           `json:"payload"` // 内容
+	Ts          int64         `json:"ts"`
 }
 
 // NotifyHandler 定义处理器接口

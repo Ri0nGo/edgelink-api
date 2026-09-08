@@ -57,7 +57,7 @@ func PublishDevicePropsToRedis(ctx context.Context, db *gorm.DB, pub notify.Noti
 	if err = pub.DevicePropChange(ctx, notify.OperationTypeCreated, deviceProps); err != nil {
 		return err
 	}
-	logger.Info("publish device props to redis")
+	logger.Info("publish device props to redis", "config_source", "startup_database_load", "property_count", len(deviceProps))
 	return nil
 }
 

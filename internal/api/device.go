@@ -61,13 +61,13 @@ func (a *DeviceApi) UpdateDevice(ctx *gin.Context) {
 		return
 	}
 
-	if req.Key != "" {
-		handler.HandlerError(ctx, response.RespCodeParamErr, bizErr.NewBizError("设备标识符不能修改"))
-		return
-	}
-
 	if err := a.deviceSvc.UpdateDevice(ctx.Request.Context(), &req); err != nil {
 		logger.Error("update Device err", "err", err)
+		var businessErr *bizErr.BizError
+		if errors.As(err, &businessErr) {
+			handler.HandlerError(ctx, response.RespCodeParamErr, err)
+			return
+		}
 		handler.HandlerError(ctx, response.RespCodeInternalErr, err)
 		return
 	}

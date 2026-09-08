@@ -7,6 +7,7 @@ import (
 	"edgelink-api/internal/dataloader/notify"
 	"edgelink-api/internal/model"
 	bizErr "edgelink-api/internal/pkg/bizerr"
+	"edgelink-api/internal/pkg/logger"
 	"edgelink-api/internal/repo"
 	"edgelink-api/internal/utils"
 	"fmt"
@@ -85,6 +86,12 @@ func (s *ThingModelSvc) UpdateThingModel(ctx context.Context, req *dto.ReqThingM
 	}
 
 	err := s.tmRepo.UpdateThingModel(ctx, tmDao, tmps)
+	if err == nil {
+		for _, prop := range tmps {
+			logger.Warn("model property updated without persistence cache notification", "config_source", "UpdateThingModel",
+				"model_id", req.Id, "property_id", prop.Id, "property_key", prop.Key)
+		}
+	}
 	return err
 }
 
@@ -170,6 +177,8 @@ func (s *ThingModelSvc) CreateThingModelProp(ctx context.Context, req *dto.ReqTh
 	}
 
 	// 通知存储器更新缓存
+	logger.Info("model property persistence config publishing", "config_source", "CreateThingModelProp", "model_id", req.ModelId,
+		"property_id", propDao.Id, "property_key", propDao.Key, "device_count", len(deviceProps), "persistent", true)
 	if err = notify.DevicePropChange(ctx, notify.OperationTypeCreated, deviceProps); err != nil {
 		return err
 	}
@@ -214,6 +223,8 @@ func (s *ThingModelSvc) UpdateThingModelProp(ctx context.Context, req *dto.ReqTh
 	}
 
 	// 通知存储器更新缓存
+	logger.Warn("model property persistence config publishing without persistent filter", "config_source", "UpdateThingModelProp", "model_id", req.ModelId,
+		"property_id", propDao.Id, "property_key", propDao.Key, "device_count", len(deviceProps))
 	if err = notify.DevicePropChange(ctx, notify.OperationTypeUpdated, deviceProps); err != nil {
 		return err
 	}

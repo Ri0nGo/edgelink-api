@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -37,7 +38,7 @@ func (r *RedisNotifierSub) Start() error {
 
 	go r.handlerEvent(pubsub)
 
-	logger.Info("redis subcribe success", "channel name", r.channelName)
+	logger.Info("redis subcribe success", "channel", r.channelName, "redis_addr", r.client.Options().Addr, "redis_db", r.client.Options().DB)
 	return nil
 }
 
@@ -63,6 +64,12 @@ func (r *RedisNotifierSub) handlerEvent(pubsub *redis.PubSub) {
 				continue
 			}
 
+			logger.Info("device config event received", "channel", r.channelName, "redis_db", r.client.Options().DB,
+				"publisher_id", evt.PublisherID, "notify_type", evt.NotifyType, "operation", evt.Operation, "device_key", evt.DeviceKey, "event_ts", evt.Ts, "payload", evt.Payload)
+			if evt.PublisherDB != nil && *evt.PublisherDB != r.client.Options().DB {
+				logger.Warn("device config event received from different redis database", "channel", r.channelName,
+					"publisher_id", evt.PublisherID, "publisher_db", *evt.PublisherDB, "redis_db", r.client.Options().DB)
+			}
 			r.Dispatch(r.ctx, &evt)
 		}
 	}
@@ -81,6 +88,7 @@ func (r *RedisNotifierSub) Close() error {
 type RedisNotifierPub struct {
 	cmd         redis.Cmdable
 	channelName string
+	publisherID string
 }
 
 func (r *RedisNotifierPub) DeviceConfigChange(ctx context.Context, operation OperationType,
@@ -118,26 +126,39 @@ func (r *RedisNotifierPub) DevicePropChange(ctx context.Context,
 func (r *RedisNotifierPub) publishEvent(ctx context.Context, notifyType NotifyType, operation OperationType,
 	deviceKey string, data any) error {
 	event := Event{
-		NotifyType: notifyType,
-		Operation:  operation,
-		DeviceKey:  deviceKey,
-		Payload:    data,
-		Ts:         time.Now().Unix(),
+		PublisherID: r.publisherID,
+		NotifyType:  notifyType,
+		Operation:   operation,
+		DeviceKey:   deviceKey,
+		Payload:     data,
+		Ts:          time.Now().Unix(),
+	}
+	if client, ok := r.cmd.(*redis.Client); ok {
+		db := client.Options().DB
+		event.PublisherDB = &db
 	}
 	bytes, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("marshal event failed, err: %v", err)
 	}
-	if err := r.cmd.Publish(ctx, r.channelName, bytes).Err(); err != nil {
+	subscribers, err := r.cmd.Publish(ctx, r.channelName, bytes).Result()
+	if err != nil {
 		return fmt.Errorf("redis publish failed, channel: %s, err: %w", r.channelName, err)
+	}
+	logger.Info("device config event published", "channel", r.channelName, "notify_type", notifyType,
+		"publisher_id", r.publisherID, "operation", operation, "device_key", deviceKey, "event_ts", event.Ts, "subscribers", subscribers, "event", string(bytes))
+	if subscribers == 0 {
+		logger.Warn("device config event has no subscribers", "channel", r.channelName, "notify_type", notifyType, "device_key", deviceKey)
 	}
 	return nil
 }
 
 func NewRedisNotifierPub(cmd redis.Cmdable, channelName string) NotifierPub {
+	host, _ := os.Hostname()
 	return &RedisNotifierPub{
 		cmd:         cmd,
 		channelName: channelName,
+		publisherID: fmt.Sprintf("%s:%d", host, os.Getpid()),
 	}
 }
 

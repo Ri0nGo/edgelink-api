@@ -77,6 +77,8 @@ func (s *DeviceSvc) CreateDevice(ctx context.Context, req *dto.ReqDevice) error 
 	if err = s.deviceRepo.CreateDevice(ctx, DeviceDao, deviceProps); err != nil {
 		return err
 	}
+	logger.Info("device persistence config created", "config_source", "CreateDevice", "device_id", DeviceDao.Id,
+		"device_key", DeviceDao.Key, "property_count", len(deviceProps), "persistent", true)
 
 	// todo 后续可以改成发布的形式，在发布时才通知设备
 	if err = notify.DeviceConfigChange(ctx, notify.OperationTypeCreated, &dataloader.DeviceInfo{
@@ -120,6 +122,17 @@ func (s *DeviceSvc) generateAddress(productKey, deviceKey string) model.DeviceAd
 }
 
 func (s *DeviceSvc) UpdateDevice(ctx context.Context, req *dto.ReqDevice) error {
+	device, err := s.deviceRepo.GetDeviceById(ctx, req.Id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return bizErr.NewBizError("设备不存在")
+		}
+		return err
+	}
+	if req.Key != "" && req.Key != device.Key {
+		return bizErr.NewBizError("设备标识符不能修改")
+	}
+
 	if _, err := s.productRepo.GetProductById(ctx, req.ProductId); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return bizErr.NewBizError("产品不存在")
@@ -145,6 +158,7 @@ func (s *DeviceSvc) DeleteDevice(ctx context.Context, id int) error {
 	if err = s.deviceRepo.DeleteDevicePropByDeviceId(ctx, id); err != nil {
 		return err
 	}
+	logger.Warn("device deleted without persistence cache notification", "config_source", "DeleteDevice", "device_id", id)
 	// todo 这里还需要删除对应的历史数据
 	return nil
 }
@@ -358,6 +372,8 @@ func (s *DeviceSvc) UpdateDeviceProp(ctx context.Context, req *dto.ReqDeviceProp
 	if err != nil {
 		return err
 	}
+	logger.Info("device persistence setting requested", "config_source", "UpdateDeviceProp", "device_id", propDao.DeviceId,
+		"property_id", propDao.PropertyId, "ref_id", req.Id, "old_persistent", propDao.Persistent, "requested_persistent", req.Persistent)
 
 	if err = s.deviceRepo.UpdateDevicePropRef(ctx, model.DevicePropertyRef{
 		Id:         req.Id,
