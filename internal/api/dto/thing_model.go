@@ -8,7 +8,7 @@ type FuncType struct {
 	Id          int                        `json:"id"`
 	Name        string                     `json:"name" binding:"required"`
 	ModelId     int                        `json:"model_id" binding:"required"`
-	Key         string                     `json:"Key" binding:"required"` // 属性标识
+	Key         string                     `json:"key" binding:"required"` // 属性标识
 	Description string                     `json:"description"`
 	SourceType  model.ThingModelSourceType `json:"source_type"` // raw / formula
 	Type        model.ThingModelType       `json:"type"`        // 属性/功能/事件

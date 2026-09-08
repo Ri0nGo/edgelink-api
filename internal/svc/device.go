@@ -53,7 +53,7 @@ func (s *DeviceSvc) CreateDevice(ctx context.Context, req *dto.ReqDevice) error 
 		Address:     datatypes.NewJSONType(s.generateAddress(productModel.Identifier, req.Key)),
 		Description: req.Description,
 	}
-	props, err := s.tmpRepo.GetThingModelPropsByModelId(ctx, productModel.ModelId)
+	props, err := s.tmpRepo.GetThingModelPropsByModelId(ctx, productModel.ThingModelId)
 	if err != nil {
 		return err
 	}

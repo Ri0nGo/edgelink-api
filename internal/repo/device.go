@@ -86,7 +86,7 @@ func (r *DeviceRepo) GetDevicesByThingModelID(ctx context.Context, modelId int) 
 SELECT t1.* from device t1
 INNER JOIN product t2
 INNER JOIN thing_model t3
-ON t1.product_id = t2.id AND t2.model_id = t3.id
+ON t1.product_id = t2.id AND t2.thing_model_id = t3.id
 WHERE t3.id = ?;
 `, modelId).
 		Find(&results).

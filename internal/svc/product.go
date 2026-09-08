@@ -32,12 +32,11 @@ func (s *ProductSvc) CreateProduct(ctx context.Context, req *dto.ReqProduct) err
 	productDao := &model.Product{
 		Identifier: req.Identifier,
 		Name:       req.Name,
-		ModelId:    req.ModelId,
+		ThingModelId: req.ModelId,
 		Protocol:   req.Protocol,
 	}
 
-	return s.productRepo.CreateProduct(ctx, productDao)
-}
+	return s.productRepo.CreateProduct(ctx, productDao)}
 
 func (s *ProductSvc) UpdateProduct(ctx context.Context, req *dto.ReqProduct) error {
 	_, err := s.tmRepo.GetThingModelById(ctx, req.ModelId)
@@ -48,7 +47,7 @@ func (s *ProductSvc) UpdateProduct(ctx context.Context, req *dto.ReqProduct) err
 		Id:         req.Id,
 		Identifier: req.Identifier,
 		Name:       req.Name,
-		ModelId:    req.ModelId,
+		ThingModelId: req.ModelId,
 		Protocol:   req.Protocol,
 	}
 	return s.productRepo.UpdateProduct(ctx, productDao)
@@ -73,7 +72,7 @@ func (s *ProductSvc) GetProductById(ctx context.Context, id int) (model.Product,
 	if err != nil {
 		return model.Product{}, err
 	}
-	thingModel, err := s.tmRepo.GetThingModelById(ctx, productDao.ModelId)
+	thingModel, err := s.tmRepo.GetThingModelById(ctx, productDao.ThingModelId)
 	if err != nil {
 		return model.Product{}, err
 	}
@@ -94,7 +93,7 @@ func (s *ProductSvc) GetProductList(ctx context.Context, search string, page dto
 	// 查询产品所使用的模型
 	var modelIds []int
 	for _, product := range products {
-		modelIds = append(modelIds, product.ModelId)
+		modelIds = append(modelIds, product.ThingModelId)
 	}
 
 	modelsMap, err := s.getThingsModelsMap(ctx, modelIds)
@@ -102,7 +101,7 @@ func (s *ProductSvc) GetProductList(ctx context.Context, search string, page dto
 		return dto.Page{}, err
 	}
 	for i, product := range products {
-		if m, ok := modelsMap[product.ModelId]; ok {
+		if m, ok := modelsMap[product.ThingModelId]; ok {
 			products[i].ModelName = m.Name
 		}
 	}
